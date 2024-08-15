@@ -6,6 +6,9 @@ on:
         type: string
         required: false
         default: "."
+      project:
+        type: string
+        required: true
       workload_identity_provider:
         type: string
         required: true
@@ -14,7 +17,7 @@ on:
         required: true
 
 concurrency:
-  group: ${{ inputs.project}}
+  group: ${{ inputs.project }}
   cancel-in-progress: false
 
 jobs:
