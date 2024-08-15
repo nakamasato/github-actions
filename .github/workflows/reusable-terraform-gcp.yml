@@ -1,4 +1,4 @@
-name: gcp
+name: terraform-gcp
 on:
   workflow_call:
     inputs:
