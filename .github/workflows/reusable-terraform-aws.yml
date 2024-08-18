@@ -1,0 +1,80 @@
+name: terraform-aws
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        type: string
+        required: false
+        default: "."
+      iam_role:
+        type: string
+        required: true
+      region:
+        type: string
+        required: true
+      identifier:
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ inputs.identifier }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install aqua
+        uses: aquaproj/aqua-installer@v3.0.1
+        with:
+          aqua_version: v2.29.0
+
+      - name: install tfcmt
+        run: aqua i
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2.0.0
+        with:
+          role-to-assume: ${{ inputs.iam_role }}
+          aws-region: ${{ inputs.region }}
+
+      - name: set-tf-version
+        id: set-tf-version
+        run: |
+          echo "terraform_version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ steps.set-tf-version.outputs.terraform_version }}
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        run: tfcmt -var "target:${{ inputs.identifier }}" plan -patch -- terraform plan -no-color
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        run: tfcmt -var "target:${{ inputs.identifier }}" apply -- terraform apply -no-color -auto-approve -input=false
