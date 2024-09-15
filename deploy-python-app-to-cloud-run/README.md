@@ -1,15 +1,25 @@
 # deploy-python-app-to-cloud-run
 
+## Description
+
+Deploy Python app with https://buildpacks.io/ (using `heroku/builder:22`)
+
+## Prerequisite
+
+You need to create Workload Identity Provider (https://cloud.google.com/iam/docs/workload-identity-federation) and Service Account with sufficient permissions (e.g. `roles/iam.workloadIdentityUser`, `roles/artifactregistry.writer`, `roles/run.developer`).
+
+For more details about setting 
+
 ## inputs
 
-1. `project`: GCP project id
-2. `region`: GCP region (default `asia-northeast1`)
-3. `service`: Cloud Run service name
-4. `repository`: GCP Artifact Registry repository
-5. `image`: image name
-6. `image_tag`: image tag
-7. `workload_identity_provider`: workload identity provider
-8. `service_account`: service account
+1. `project` (required): GCP project id
+1. `region` (optional): GCP region (default `asia-northeast1`)
+1. `service` (required): Cloud Run service name
+1. `repository` (required): GCP Artifact Registry repository
+1. `image` (required): image name
+1. `image_tag` (required): image tag
+1. `workload_identity_provider` (required): workload identity provider
+1. `service_account` (required): service account
 
 ## outputs
 
@@ -36,16 +46,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write # create tag
+      contents: read
       pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python & Poetry
-        uses: nakamasato/github-actions/setup-poetry@1.5.0
+        uses: nakamasato/github-actions/setup-poetry@1.6.0
         with:
-          version: 1.8.2
           install-dependencies: false
 
       - name: Set tag
