@@ -22,7 +22,7 @@ runs:
       run: |
         if [ "${{ inputs.version }}" != "" ]; then
           echo "POETRY_VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-        elif [ -f .tool-versions ]; the
+        elif [ -f .tool-versions ]; then
           echo "POETRY_VERSION=$(grep poetry .tool-versions | sed -E 's/.*[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+)/\1/')" >> "$GITHUB_OUTPUT"
         else
           echo "POETRY_VERSION=latest" >> "$GITHUB_OUTPUT"
