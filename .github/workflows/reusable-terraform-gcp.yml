@@ -38,8 +38,13 @@ jobs:
         with:
           aqua_version: v2.29.0
 
-      - name: install tfcmt
-        run: aqua i
+      - name: install tfcmt via aqua
+        run: |
+          if [ -f aqua.yaml ];then
+            aqua i
+          else
+            aqua g -i suzuki-shunsuke/tfcmt
+          fi
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
