@@ -1,0 +1,84 @@
+inputs:
+  project:
+    description: GCP project id
+    required: true
+  region:
+    description: GCP region
+    required: false
+    default: asia-northeast1
+  service:
+    description: Cloud Run service name
+    required: true
+  repository:
+    description: GCP Artifact Registry repository
+    required: false
+    default: cloud-run-source-deploy
+  image:
+    description: image name
+    required: true
+  image_tag:
+    description: image tag
+    required: false
+    default: latest
+  workload_identity_provider:
+    description: Workload Identity Provider
+    required: true
+  service_account:
+    description: Service Account
+    required: true
+
+outputs:
+  url:
+    description: CloudRun URL
+    value: ${{ steps.get-cloudrun-url.outputs.URL }}
+
+name: Deploy CloudRun
+description: Deploy CloudRun
+runs:
+  using: composite
+  steps:
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: access_token
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        service_account: ${{ inputs.service_account }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Login to GAR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.region }}-docker.pkg.dev
+        username: oauth2accesstoken
+        password: ${{ steps.auth.outputs.access_token }}
+
+    - name: Install Pack CLI
+      uses: buildpacks/github-actions/setup-pack@v5.7.4
+
+    - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
+      shell: bash
+      run: |
+        pack build "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
+            --tag "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:latest" \
+            --path . \
+            --builder heroku/builder:22 \
+            --cache-image "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}-cache:latest" \
+            --publish
+
+    - name: Deploy CloudRun
+      shell: bash
+      run: |
+        gcloud run deploy ${{ inputs.service }} \
+            --image "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
+            --project "${{ inputs.project }}" \
+            --region "${{ inputs.region }}" # --verbosity debug
+
+    - name: Get CloudRun URL
+      shell: bash
+      id: get-cloudrun-url
+      run: |
+        set -o pipefail
+        echo "URL=$(gcloud run services describe ${{ inputs.service }} --project "${{ inputs.project }}" --region "${{ inputs.region }}" --format json | jq -r .status.url)" >> "$GITHUB_OUTPUT"
