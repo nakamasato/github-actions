@@ -18,6 +18,7 @@ runs:
 
     - name: get poetry version from .tool-versions
       id: get-poetry-version
+      shell: bash
       run: |
         if [ "${{ inputs.version }}" != "" ]; then
           echo "POETRY_VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
