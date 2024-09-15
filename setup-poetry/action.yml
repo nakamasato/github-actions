@@ -2,7 +2,6 @@ inputs:
   version:
     description: 'The version of poetry to install'
     required: false
-    default: 1.8.2
   install-dependencies:
     description: boolean whether to run 'poetry install'
     required: false
@@ -17,21 +16,33 @@ runs:
       name: Set up Python
       uses: actions/setup-python@v5 # version is determined by .python-version
 
+    - name: get poetry version from .tool-versions
+      id: get-poetry-version
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" != "" ]; then
+          echo "POETRY_VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+        elif [ -f .tool-versions ]; then
+          echo "POETRY_VERSION=$(grep poetry .tool-versions | sed -E 's/.*[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+)/\1/')" >> "$GITHUB_OUTPUT"
+        else
+          echo "POETRY_VERSION=latest" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Load cached Poetry installation
       id: cached-poetry
       uses: actions/cache@v4
       with:
         path: ~/.local  # the path depends on the OS
-        key: poetry-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}  # increment to reset cache
+        key: poetry-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ steps.get-poetry-version.outputs.POETRY_VERSION }}
 
     #----------------------------------------------
     #  -----  install & configure poetry  -----
     #----------------------------------------------
-    - name: Install Poetry
+    - name: Install Poetry (${{ steps.get-poetry-version.outputs.POETRY_VERSION }})
       if: steps.cached-poetry.outputs.cache-hit != 'true'
       uses: snok/install-poetry@v1
       with:
-        version: ${{ inputs.version }}
+        version: ${{ steps.get-poetry-version.outputs.POETRY_VERSION }}
         virtualenvs-create: true
         virtualenvs-in-project: true
         installer-parallel: true
@@ -44,7 +55,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pypoetry/virtualenvs
-        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ steps.get-poetry-version.outputs.POETRY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
 
     #----------------------------------------------
     # install dependencies if cache does not exist
