@@ -1,7 +1,15 @@
 inputs:
   version:
-    description: 'The version of poetry to install'
+    description: The version of poetry to install
     required: false
+  python-version-file:
+    description: Python version file passed to setup-python (e.g. .python-version, pyproject.toml
+    required: false
+    default: ''
+  python-version:
+    description: Python version passed to setup-python
+    required: false
+    default: ''
   install-dependencies:
     description: boolean whether to run 'poetry install'
     required: false
@@ -14,7 +22,10 @@ runs:
   steps:
     - id: setup-python
       name: Set up Python
-      uses: actions/setup-python@v5 # version is determined by .python-version
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ${{ inputs.python-version-file }}
+        python-version: ${{ inputs.python-version }}
 
     - name: get poetry version from .tool-versions
       id: get-poetry-version
