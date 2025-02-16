@@ -27,6 +27,11 @@ runs:
         python-version-file: ${{ inputs.python-version-file }}
         python-version: ${{ inputs.python-version }}
 
+    - name: Create cache directories
+      run: |
+        mkdir -p ~/.local
+        mkdir -p ~/.cache/pypoetry/virtualenvs
+
     - name: get poetry version from .tool-versions
       id: get-poetry-version
       shell: bash
