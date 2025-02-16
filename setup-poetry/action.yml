@@ -45,6 +45,7 @@ runs:
         fi
 
     - name: Load cached Poetry installation
+      shell: bash
       id: cached-poetry
       uses: actions/cache@v4
       with:
