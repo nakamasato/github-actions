@@ -58,7 +58,6 @@ runs:
         virtualenvs-in-project: true
         installer-parallel: true
         virtualenvs-path: .venv
-        installer-parallel: true
 
     #----------------------------------------------
     #       load cached venv if cache exists
