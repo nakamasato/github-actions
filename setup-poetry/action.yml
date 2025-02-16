@@ -28,6 +28,7 @@ runs:
         python-version: ${{ inputs.python-version }}
 
     - name: Create cache directories
+      shell: bash
       run: |
         mkdir -p ~/.local
         mkdir -p ~/.cache/pypoetry/virtualenvs
@@ -45,7 +46,6 @@ runs:
         fi
 
     - name: Load cached Poetry installation
-      shell: bash
       id: cached-poetry
       uses: actions/cache@v4
       with:
