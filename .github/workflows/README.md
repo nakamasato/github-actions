@@ -1,5 +1,3 @@
-# reusable-terraform-aws
-
 ## Prerequisite
 
 [aqua](https://aquaproj.github.io/): tool to manage cli 
@@ -16,8 +14,37 @@ brew install aquaproj/aqua/aqua
 aqua g -i suzuki-shunsuke/tfcmt
 ```
 
-
 ## Examples
+
+### GCP
+
+```yaml
+name: gcp
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  terraform:
+    uses: nakamasato/github-actions/.github/workflows/reusable-terraform-gcp.yml@1.6.5
+    with:
+      working_directory: <dir>
+      project: <project name>
+      workload_identity_provider: projects/<project id>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+      service_account: <sa name>@<project name>.iam.gserviceaccount.com
+```
+
+### AWS
 
 ```yaml
 name: aws
