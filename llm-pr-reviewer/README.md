@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
       
       - name: LLM PR Reviewer
-        uses: your-username/llm-pr-reviewer@v1
+        uses: nakamasato/github-actions/llm-pr-reviewer@latest
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -74,7 +74,7 @@ The `GITHUB_TOKEN` is automatically provided by GitHub Actions.
 
 When the action finds an improvement opportunity, it will add a comment like this:
 
-```
+````
 **Code Improvement Suggestion:**
 
 This loop can be simplified using list comprehension for better readability and performance.
@@ -82,7 +82,7 @@ This loop can be simplified using list comprehension for better readability and 
 ```suggestion
 users = [user for user in all_users if user.is_active]
 ```
-```
+````
 
 ## Contributing
 
