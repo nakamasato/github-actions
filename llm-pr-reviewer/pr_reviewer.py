@@ -5,7 +5,7 @@ import json
 import fnmatch
 import requests
 from openai import OpenAI
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Any, Set
 
 # Configuration from environment
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -138,14 +138,24 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
     return referenced_files
 
 
-def analyze_code(changed_content: str, filename: str, referenced_files: Dict[str, str]) -> List[Dict]:
+def analyze_code(patch: str, line_numbers: List[Dict[int, int]], filename: str, file_content: str, referenced_files: Dict[str, str]) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
     prompt = f"""
 Analyze the following code from {filename} and suggest specific improvements:
 
+Changed lines:
+
+```diff
+{patch}
 ```
-{changed_content}
+
+Changed line numbers: {line_numbers}
+
+Entire file content:
+
+```
+{file_content}
 ```
 
 """
@@ -199,6 +209,7 @@ For the importance field, use these guidelines:
 - 0.0-0.5: Minor issues (style, readability)
 
 Do not artificially inflate the importance rating.
+The line_start and line_end should be the inside the changed lines.
 """
 
     try:
@@ -253,13 +264,13 @@ def get_existing_comments() -> Dict[str, Set[int]]:
         )
         response.raise_for_status()
         results = response.json()
-        
+
         if not results:
             break
-            
+
         for comment in results:
             path = comment["path"]
-            
+
             # Extract the line number from the comment, handling multiple possible locations
             line = None
             # Try different possible locations for the line number
@@ -270,18 +281,18 @@ def get_existing_comments() -> Dict[str, Set[int]]:
             elif comment.get("position") is not None:
                 # Position is fallback, but less accurate
                 line = comment["position"]
-            
+
             # Skip if we couldn't determine a line number
             if line is None:
                 continue
-                
+
             if path not in comments:
                 comments[path] = set()
-            
+
             comments[path].add(line)
-        
+
         page += 1
-    
+
     return comments
 
 
@@ -296,45 +307,35 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
         return 0
 
     # Parse the patch to get position information
-    positions = calculate_positions(patch)
-    
+    line_numbers = calculate_line_numbers(patch)
+    print(f"Line numbers: {line_numbers}")
+
     # Get lines already commented on for this file
     commented_lines = existing_comments.get(filename, set())
-    
+
     # Filter out suggestions that are below the importance threshold
     filtered_suggestions = [
-        s for s in suggestions 
-        if s.get("importance", 0) >= COMMENT_THRESHOLD and 
+        s for s in suggestions
+        if s.get("importance", 0) >= COMMENT_THRESHOLD and
         s["line_start"] not in commented_lines
     ]
-    
+
     # Sort by importance (highest first)
     filtered_suggestions.sort(key=lambda x: x.get("importance", 0), reverse=True)
-    
+
     # Only take the top suggestions
     filtered_suggestions = filtered_suggestions[:MAX_COMMENTS]
-    
+
     comments_posted = 0
     for suggestion in filtered_suggestions:
         try:
             # Get the line number from the suggestion
             line_start = suggestion["line_start"]
 
-            # Find the position in the diff
-            position = None
-            for pos_info in positions:
-                if pos_info["line_number"] == line_start:
-                    position = pos_info["position"]
-                    break
-
-            if position is None:
-                print(f"Could not find position for line {line_start} in file {filename}")
-                continue
-
             # Format the comment body
             issue_type = suggestion.get("issue_type", "")
             importance = suggestion.get("importance", 0)
-            
+
             # Add badges for importance and issue type
             badge = ""
             if importance >= 0.9:
@@ -345,10 +346,10 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                 badge = "🟡 **Moderate**"
             else:
                 badge = "🟢 **Minor**"
-                
+
             if issue_type:
                 badge += f" | {issue_type.capitalize()}"
-                
+
             body = f"**Code Improvement Suggestion:** {badge}\n\n{suggestion['explanation']}\n\n"
 
             # Only include suggestion formatting if there's a clear replacement
@@ -365,10 +366,10 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                     r'should be',
                     r'update'
                 ]
-                
+
                 # Only use the suggestion if it doesn't contain explanatory text
                 is_valid_code = not any(re.search(pattern, suggestion_text.lower()) for pattern in meta_patterns)
-                
+
                 if is_valid_code:
                     body += f"```suggestion\n{suggestion_text}\n```"
                 else:
@@ -379,11 +380,20 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
 
             # Post the comment with required parameters
             comment_data = {
-                "body": body,
-                "commit_id": head_sha,
-                "path": filename,
-                "position": position
+                "body": body, # required
+                "commit_id": head_sha, # required
+                "path": filename, # required
+                # "position": position, # deprecated
+                # "start_line": line_start, # optional needed for multi-line suggestions
+                "line": line_start, # end line if multi-line
+                "side": "LEFT",
+                # "start_line": <number>,
+                # "start_side": "RIGHT" or "LEFT" # optional
+                # "in_reply_to": <review comment id> # optional
+                # "subject_type": "file" or "line" # optional
             }
+
+            print(f"Comment data: {comment_data}")
 
             try:
                 response = requests.post(
@@ -393,7 +403,7 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                 )
                 response.raise_for_status()
                 comments_posted += 1
-                print(f"Posted comment on {filename}:{line_start}, position: {position}")
+                print(f"Posted comment on {filename}:{line_start}")
             except requests.exceptions.HTTPError as e:
                 print(f"Error posting comment: {e}")
                 print(f"Response content: {e.response.content.decode('utf-8')}")
@@ -416,26 +426,23 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
 
         except Exception as e:
             print(f"Error processing suggestion: {e}")
-            
+
     return comments_posted
 
 
-def calculate_positions(patch: str) -> List[Dict[int, int]]:
+def calculate_line_numbers(patch: str) -> List[Dict[int, int]]:
     """
-    Calculate the positions in the diff for each line number.
-    Position is a zero-based line index in the entire diff blob.
+    Calculate the line numbers in the diff for each line number.
+    Line number is a zero-based line index in the entire diff blob.
     """
     if not patch:
         return []
 
-    positions = []
-    position_counter = 0  # Zero-based counter for position in the diff
+    result = []
     current_line = 0
-
     lines = patch.split("\n")
 
     for line in lines:
-        position_counter += 1  # Increment for each line in the diff
 
         if line.startswith("@@"):
             # Parse the hunk header
@@ -447,12 +454,11 @@ def calculate_positions(patch: str) -> List[Dict[int, int]]:
             current_line += 1
             if line.startswith("+"):
                 # This is an added line
-                positions.append({
+                result.append({
                     "line_number": current_line,
-                    "position": position_counter
                 })
 
-    return positions
+    return result
 
 
 def main():
@@ -461,7 +467,7 @@ def main():
     # Get files changed in the PR
     pr_files = get_pr_files()
     print(f"Found {len(pr_files)} files to review")
-    
+
     # Get existing comments to avoid duplicates
     existing_comments = get_existing_comments()
     print(f"Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines")
@@ -489,7 +495,8 @@ def main():
                 referenced_files[ref_path] = ref_content
 
         # Analyze the code
-        suggestions = analyze_code(file_content, filename, referenced_files)
+        line_numbers = calculate_line_numbers(patch)
+        suggestions = analyze_code(patch, line_numbers, filename, file_content, referenced_files)
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
