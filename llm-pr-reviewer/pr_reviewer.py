@@ -178,21 +178,20 @@ Focus on:
 - Readability and maintainability
 """
 
-    prompt += f"""
+    prompt += """
 Format your response as JSON:
 [
-  {{
+  {
     "line_start": <number>,
     "line_end": <number>,
-    "explanation": "<explanation>",
-    "suggestion": "<suggested code (optional)>",
+    "explanation": "<detailed explanation of the issue and how to improve it>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
     "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
-  }},
+  },
   ...
 ]
 
-Provide a maximum of 10 comments (optionally include suggestion when if you have specific code suggestion), ordered by importance.
+Provide a maximum of 10 comments, ordered by importance.
 For the importance field, use these guidelines:
 - 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
 - 0.7-0.9: Important issues (significant performance issues, potential bugs)
@@ -200,16 +199,6 @@ For the importance field, use these guidelines:
 - 0.0-0.5: Minor issues (style, readability)
 
 Do not artificially inflate the importance rating.
-
-IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
-GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in line_start and line_end.
-DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
-
-Examples:
-1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
-2. GOOD suggestion: "actions/checkout@v3"
-
-If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 """
 
     try:
