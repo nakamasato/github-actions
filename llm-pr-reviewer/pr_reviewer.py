@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Set, Tuple
 # Configuration from environment
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 FILE_EXTENSIONS = os.getenv("FILE_EXTENSIONS", ".js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.md,.yml,.yaml").split(",")
 MAX_COMMENTS = int(os.getenv("MAX_COMMENTS", 5))
 EXCLUDE_PATTERNS = os.getenv("EXCLUDE_PATTERNS", "").split(",")
@@ -26,6 +27,7 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json"
 }
 
+
 def get_pr_files() -> List[Dict[str, Any]]:
     """Get the list of files changed in the PR."""
     response = requests.get(
@@ -34,6 +36,7 @@ def get_pr_files() -> List[Dict[str, Any]]:
     )
     response.raise_for_status()
     return [f for f in response.json() if should_review_file(f["filename"])]
+
 
 def should_review_file(filename: str) -> bool:
     """Check if the file should be reviewed based on extension, workflow files, and exclude patterns."""
@@ -49,6 +52,7 @@ def should_review_file(filename: str) -> bool:
     # Check if file has an extension we want to review
     return any(filename.endswith(ext) for ext in FILE_EXTENSIONS)
 
+
 def get_file_content(filename: str) -> str:
     """Get the content of a file from the repository."""
     response = requests.get(
@@ -62,6 +66,7 @@ def get_file_content(filename: str) -> str:
         import base64
         return base64.b64decode(content).decode('utf-8')
     return ""
+
 
 def get_referenced_files(file_content: str, filename: str) -> List[str]:
     """Extract referenced files from imports/requires in the code."""
@@ -132,6 +137,7 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
 
     return referenced_files
 
+
 def analyze_code(changed_content: str, filename: str, referenced_files: Dict[str, str]) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
@@ -179,14 +185,14 @@ Format your response as JSON:
     "line_start": <number>,
     "line_end": <number>,
     "explanation": "<explanation>",
-    "suggestion": "<suggested code>",
+    "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
     "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
   }},
   ...
 ]
 
-Provide a maximum of 10 suggestions, ordered by importance.
+Provide a maximum of 10 comments (optionally include suggestion when if you have specific code suggestion), ordered by importance.
 For the importance field, use these guidelines:
 - 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
 - 0.7-0.9: Important issues (significant performance issues, potential bugs)
@@ -194,12 +200,14 @@ For the importance field, use these guidelines:
 - 0.0-0.5: Minor issues (style, readability)
 
 Do not artificially inflate the importance rating.
+
+If you're not sure, you can leave the suggestion field empty and ask a question for clarification.
 """
 
     try:
         # Using the new OpenAI client API format
         response = client.chat.completions.create(
-            model="gpt-4",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "You are a code review assistant. Analyze code and provide specific, helpful improvements as JSON."},
                 {"role": "user", "content": prompt}
@@ -221,6 +229,7 @@ Do not artificially inflate the importance rating.
         print(f"Error analyzing code: {e}")
         return []
 
+
 def get_pr_diff_info(pr_number: str) -> Dict[str, Any]:
     """Get PR diff information including commit_id."""
     response = requests.get(
@@ -233,6 +242,7 @@ def get_pr_diff_info(pr_number: str) -> Dict[str, Any]:
         "head_sha": pr_data["head"]["sha"],
         "base_sha": pr_data["base"]["sha"]
     }
+
 
 def get_existing_comments() -> Dict[str, Set[int]]:
     """Get existing bot comments on the PR to avoid duplicates."""
@@ -276,6 +286,7 @@ def get_existing_comments() -> Dict[str, Set[int]]:
         page += 1
     
     return comments
+
 
 def post_review_comments(filename: str, suggestions: List[Dict], patch: str, existing_comments: Dict[str, Set[int]]) -> int:
     """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
@@ -390,6 +401,7 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
             
     return comments_posted
 
+
 def calculate_positions(patch: str) -> List[Dict[int, int]]:
     """
     Calculate the positions in the diff for each line number.
@@ -423,6 +435,7 @@ def calculate_positions(patch: str) -> List[Dict[int, int]]:
                 })
 
     return positions
+
 
 def main():
     print("Starting PR code review...")
@@ -473,6 +486,7 @@ def main():
             print(f"Posted {comments_posted} comments for {filename}")
 
     print(f"PR review completed. Posted {comment_count} comments in total.")
+
 
 if __name__ == "__main__":
     main()
