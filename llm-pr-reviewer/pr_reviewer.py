@@ -201,7 +201,18 @@ For the importance field, use these guidelines:
 
 Do not artificially inflate the importance rating.
 
-If you're not sure, you can leave the suggestion field empty and ask a question for clarification.
+IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
+GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in line_start and line_end.
+DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
+
+Examples:
+1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
+2. GOOD suggestion: "actions/checkout@v3"
+
+1. BAD suggestion: "Add a null check before accessing the property"
+2. GOOD suggestion: "if (user !== null && user.profile) {"
+
+If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 """
 
     try:
@@ -355,9 +366,30 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
             body = f"**Code Improvement Suggestion:** {badge}\n\n{suggestion['explanation']}\n\n"
 
             # Only include suggestion formatting if there's a clear replacement
-            if suggestion.get("suggestion") and len(suggestion["suggestion"].strip()) > 0:
-                suggestion_text = suggestion["suggestion"].strip()
-                body += f"```suggestion\n{suggestion_text}\n```"
+            suggestion_text = suggestion.get("suggestion", "").strip()
+            if suggestion_text:
+                # Check if the suggestion contains any metacharacters or instructions
+                meta_patterns = [
+                    r'change .+ to',
+                    r'replace .+ with',
+                    r'use',
+                    r'add',
+                    r'remove',
+                    r'consider',
+                    r'should be',
+                    r'update'
+                ]
+                
+                # Only use the suggestion if it doesn't contain explanatory text
+                is_valid_code = not any(re.search(pattern, suggestion_text.lower()) for pattern in meta_patterns)
+                
+                if is_valid_code:
+                    body += f"```suggestion\n{suggestion_text}\n```"
+                else:
+                    print(f"Skipping invalid suggestion format: {suggestion_text}")
+                    # Use just the explanation without the suggestion block
+                    # We could potentially try to extract the actual code from the suggestion
+                    # but that would require more complex parsing
 
             # Post the comment with required parameters
             comment_data = {
