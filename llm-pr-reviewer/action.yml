@@ -1,0 +1,55 @@
+name: 'LLM PR Reviewer'
+description: 'Automatically reviews PRs and provides improvement suggestions as comments using an LLM'
+author: 'Your Name'
+branding:
+  icon: 'code'
+  color: 'blue'
+
+inputs:
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+  file_extensions:
+    description: 'File extensions to review (comma-separated)'
+    default: '.js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.php,.cs'
+    required: false
+  max_comments:
+    description: 'Maximum number of comments per PR'
+    default: '10'
+    required: false
+  exclude_patterns:
+    description: 'File patterns to exclude (comma-separated glob patterns)'
+    default: 'node_modules/**,dist/**,build/**,**/*.min.js'
+    required: false
+  openai_api_key:
+    description: 'OpenAI API key for code analysis'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+        
+    - name: Install dependencies
+      run: pip install openai requests
+      shell: bash
+      
+    - name: Run PR Review
+      run: python ${{ github.action_path }}/pr_reviewer.py
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        FILE_EXTENSIONS: ${{ inputs.file_extensions }}
+        MAX_COMMENTS: ${{ inputs.max_comments }}
+        EXCLUDE_PATTERNS: ${{ inputs.exclude_patterns }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
