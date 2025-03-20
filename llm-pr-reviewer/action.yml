@@ -1,6 +1,6 @@
 name: 'LLM PR Reviewer'
 description: 'Automatically reviews PRs and provides improvement suggestions as comments using an LLM'
-author: 'Your Name'
+author: 'Naka Masato'
 branding:
   icon: 'code'
   color: 'blue'

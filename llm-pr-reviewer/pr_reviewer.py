@@ -4,7 +4,7 @@ import re
 import json
 import fnmatch
 import requests
-import openai
+from openai import OpenAI
 from typing import List, Dict, Any
 
 # Configuration from environment
@@ -16,8 +16,8 @@ EXCLUDE_PATTERNS = os.environ["EXCLUDE_PATTERNS"].split(",")
 PR_NUMBER = os.environ["PR_NUMBER"]
 REPO = os.environ["REPO"]
 
-# Initialize OpenAI
-openai.api_key = OPENAI_API_KEY
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO}"
 HEADERS = {
@@ -164,7 +164,8 @@ Limit to the most important 5 suggestions maximum.
 """
 
     try:
-        response = openai.ChatCompletion.create(
+        # Using the new OpenAI client API format
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a code review assistant. Analyze code and provide specific, helpful improvements as JSON."},
