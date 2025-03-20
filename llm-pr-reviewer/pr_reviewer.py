@@ -5,18 +5,22 @@ import json
 import fnmatch
 import requests
 from openai import OpenAI
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Any, Set
 
 # Configuration from environment
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-FILE_EXTENSIONS = os.getenv("FILE_EXTENSIONS", ".js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.md,.yml,.yaml").split(",")
+FILE_EXTENSIONS = os.getenv(
+    "FILE_EXTENSIONS", ".js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.md,.yml,.yaml"
+).split(",")
 MAX_COMMENTS = int(os.getenv("MAX_COMMENTS", 5))
 EXCLUDE_PATTERNS = os.getenv("EXCLUDE_PATTERNS", "").split(",")
 PR_NUMBER = os.environ["PR_NUMBER"]
 REPO = os.environ["REPO"]
-COMMENT_THRESHOLD = float(os.getenv("COMMENT_THRESHOLD", "0.7"))  # Threshold for comment importance (0.0-1.0)
+COMMENT_THRESHOLD = float(
+    os.getenv("COMMENT_THRESHOLD", "0.7")
+)  # Threshold for comment importance (0.0-1.0)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -24,15 +28,14 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO}"
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github.v3+json"
+    "Accept": "application/vnd.github.v3+json",
 }
 
 
 def get_pr_files() -> List[Dict[str, Any]]:
     """Get the list of files changed in the PR."""
     response = requests.get(
-        f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/files",
-        headers=HEADERS
+        f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/files", headers=HEADERS
     )
     response.raise_for_status()
     return [f for f in response.json() if should_review_file(f["filename"])]
@@ -46,7 +49,9 @@ def should_review_file(filename: str) -> bool:
             return False
 
     # Include GitHub Actions workflow files
-    if filename.startswith(".github/workflows/") and (filename.endswith(".yml") or filename.endswith(".yaml")):
+    if filename.startswith(".github/workflows/") and (
+        filename.endswith(".yml") or filename.endswith(".yaml")
+    ):
         return True
 
     # Check if file has an extension we want to review
@@ -58,13 +63,14 @@ def get_file_content(filename: str) -> str:
     response = requests.get(
         f"{GITHUB_API_URL}/contents/{filename}",
         headers=HEADERS,
-        params={"ref": f"refs/pull/{PR_NUMBER}/head"}
+        params={"ref": f"refs/pull/{PR_NUMBER}/head"},
     )
 
     if response.status_code == 200:
         content = response.json()["content"]
         import base64
-        return base64.b64decode(content).decode('utf-8')
+
+        return base64.b64decode(content).decode("utf-8")
     return ""
 
 
@@ -76,35 +82,35 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
     ext = os.path.splitext(filename)[1].lower()
 
     patterns = {
-        '.py': [
-            r'from\s+(\S+)\s+import',
-            r'import\s+(\S+)',
+        ".py": [
+            r"from\s+(\S+)\s+import",
+            r"import\s+(\S+)",
         ],
-        '.js': [
+        ".js": [
             r'import\s+.*\s+from\s+[\'"](.+?)[\'"]',
             r'require\([\'"](.+?)[\'"]\)',
         ],
-        '.ts': [
+        ".ts": [
             r'import\s+.*\s+from\s+[\'"](.+?)[\'"]',
             r'import\s+[\'"](.+?)[\'"]',
         ],
-        '.go': [
+        ".go": [
             r'import\s+\(\s*(?:[\'"](.+?)[\'"]\s*)+\s*\)',
             r'import\s+[\'"](.+?)[\'"]',
         ],
-        '.java': [
-            r'import\s+(.+);',
+        ".java": [
+            r"import\s+(.+);",
         ],
-        '.rb': [
+        ".rb": [
             r'require\s+[\'"](.+?)[\'"]',
             r'require_relative\s+[\'"](.+?)[\'"]',
         ],
-        '.yml': [
-            r'uses:\s+(.+?)@',
+        ".yml": [
+            r"uses:\s+(.+?)@",
             r'image:\s+[\'"]?(.+?)[\'"]?$',
         ],
-        '.yaml': [
-            r'uses:\s+(.+?)@',
+        ".yaml": [
+            r"uses:\s+(.+?)@",
             r'image:\s+[\'"]?(.+?)[\'"]?$',
         ],
     }
@@ -115,20 +121,20 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
         for match in re.finditer(pattern, file_content):
             ref = match.group(1)
             # Convert module references to potential filenames
-            if ext == '.py':
-                ref = ref.replace('.', '/') + '.py'
-            elif ext in ['.js', '.ts']:
+            if ext == ".py":
+                ref = ref.replace(".", "/") + ".py"
+            elif ext in [".js", ".ts"]:
                 # Handle relative imports
-                if not ref.startswith('.'):
+                if not ref.startswith("."):
                     continue
-                if not ref.endswith('.js') and not ref.endswith('.ts'):
+                if not ref.endswith(".js") and not ref.endswith(".ts"):
                     ref = f"{ref}.{ext[1:]}"
             # Skip external references in GitHub Actions workflows
-            elif ext in ['.yml', '.yaml'] and '/' not in ref:
+            elif ext in [".yml", ".yaml"] and "/" not in ref:
                 continue
 
             # Resolve relative paths
-            if ref.startswith('.'):
+            if ref.startswith("."):
                 base_dir = os.path.dirname(filename)
                 ref = os.path.normpath(os.path.join(base_dir, ref))
 
@@ -138,7 +144,9 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
     return referenced_files
 
 
-def analyze_code(changed_content: str, filename: str, referenced_files: Dict[str, str]) -> List[Dict]:
+def analyze_code(
+    changed_content: str, filename: str, referenced_files: Dict[str, str]
+) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
     prompt = f"""
@@ -159,7 +167,9 @@ Analyze the following code from {filename} and suggest specific improvements:
             prompt += f"File {ref_name}:\n```\n{ref_preview}\n...\n```\n\n"
 
     # Use specific prompt for GitHub Workflows
-    if filename.startswith(".github/workflows/") and (filename.endswith(".yml") or filename.endswith(".yaml")):
+    if filename.startswith(".github/workflows/") and (
+        filename.endswith(".yml") or filename.endswith(".yaml")
+    ):
         prompt += """
 For GitHub Actions workflows, focus on:
 - Security best practices (e.g., using SHA pinning for actions)
@@ -178,17 +188,17 @@ Focus on:
 - Readability and maintainability
 """
 
-    prompt += f"""
+    prompt += """
 Format your response as JSON:
 [
-  {{
+  {
     "line_start": <number>,
     "line_end": <number>,
     "explanation": "<explanation>",
     "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
     "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
-  }},
+  },
   ...
 ]
 
@@ -217,17 +227,20 @@ If you're not sure about the exact code to suggest, leave the suggestion field e
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are a code review assistant. Analyze code and provide specific, helpful improvements as JSON."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a code review assistant. Analyze code and provide specific, helpful improvements as JSON.",
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            max_tokens=2000
+            max_tokens=2000,
         )
 
         # Extract JSON from response
         content = response.choices[0].message.content.strip()
         # Handle case where the response might contain markdown code blocks
-        json_match = re.search(r'```(?:json)?\s*(\[[\s\S]+?\])\s*```', content)
+        json_match = re.search(r"```(?:json)?\s*(\[[\s\S]+?\])\s*```", content)
         if json_match:
             content = json_match.group(1)
 
@@ -240,16 +253,10 @@ If you're not sure about the exact code to suggest, leave the suggestion field e
 
 def get_pr_diff_info(pr_number: str) -> Dict[str, Any]:
     """Get PR diff information including commit_id."""
-    response = requests.get(
-        f"{GITHUB_API_URL}/pulls/{pr_number}",
-        headers=HEADERS
-    )
+    response = requests.get(f"{GITHUB_API_URL}/pulls/{pr_number}", headers=HEADERS)
     response.raise_for_status()
     pr_data = response.json()
-    return {
-        "head_sha": pr_data["head"]["sha"],
-        "base_sha": pr_data["base"]["sha"]
-    }
+    return {"head_sha": pr_data["head"]["sha"], "base_sha": pr_data["base"]["sha"]}
 
 
 def get_existing_comments() -> Dict[str, Set[int]]:
@@ -260,17 +267,17 @@ def get_existing_comments() -> Dict[str, Set[int]]:
         response = requests.get(
             f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/comments",
             headers=HEADERS,
-            params={"page": page, "per_page": 100}
+            params={"page": page, "per_page": 100},
         )
         response.raise_for_status()
         results = response.json()
-        
+
         if not results:
             break
-            
+
         for comment in results:
             path = comment["path"]
-            
+
             # Extract the line number from the comment, handling multiple possible locations
             line = None
             # Try different possible locations for the line number
@@ -281,22 +288,27 @@ def get_existing_comments() -> Dict[str, Set[int]]:
             elif comment.get("position") is not None:
                 # Position is fallback, but less accurate
                 line = comment["position"]
-            
+
             # Skip if we couldn't determine a line number
             if line is None:
                 continue
-                
+
             if path not in comments:
                 comments[path] = set()
-            
+
             comments[path].add(line)
-        
+
         page += 1
-    
+
     return comments
 
 
-def post_review_comments(filename: str, suggestions: List[Dict], patch: str, existing_comments: Dict[str, Set[int]]) -> int:
+def post_review_comments(
+    filename: str,
+    suggestions: List[Dict],
+    patch: str,
+    existing_comments: Dict[str, Set[int]],
+) -> int:
     """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
     # Get PR diff information
     try:
@@ -308,23 +320,24 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
 
     # Parse the patch to get position information
     positions = calculate_positions(patch)
-    
+
     # Get lines already commented on for this file
     commented_lines = existing_comments.get(filename, set())
-    
+
     # Filter out suggestions that are below the importance threshold
     filtered_suggestions = [
-        s for s in suggestions 
-        if s.get("importance", 0) >= COMMENT_THRESHOLD and 
-        s["line_start"] not in commented_lines
+        s
+        for s in suggestions
+        if s.get("importance", 0) >= COMMENT_THRESHOLD
+        and s["line_start"] not in commented_lines
     ]
-    
+
     # Sort by importance (highest first)
     filtered_suggestions.sort(key=lambda x: x.get("importance", 0), reverse=True)
-    
+
     # Only take the top suggestions
     filtered_suggestions = filtered_suggestions[:MAX_COMMENTS]
-    
+
     comments_posted = 0
     for suggestion in filtered_suggestions:
         try:
@@ -339,13 +352,15 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                     break
 
             if position is None:
-                print(f"Could not find position for line {line_start} in file {filename}")
+                print(
+                    f"Could not find position for line {line_start} in file {filename}"
+                )
                 continue
 
             # Format the comment body
             issue_type = suggestion.get("issue_type", "")
             importance = suggestion.get("importance", 0)
-            
+
             # Add badges for importance and issue type
             badge = ""
             if importance >= 0.9:
@@ -356,10 +371,10 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                 badge = "🟡 **Moderate**"
             else:
                 badge = "🟢 **Minor**"
-                
+
             if issue_type:
                 badge += f" | {issue_type.capitalize()}"
-                
+
             body = f"**Code Improvement Suggestion:** {badge}\n\n{suggestion['explanation']}\n\n"
 
             # Only include suggestion formatting if there's a clear replacement
@@ -367,19 +382,22 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
             if suggestion_text:
                 # Check if the suggestion contains any metacharacters or instructions
                 meta_patterns = [
-                    r'change .+ to',
-                    r'replace .+ with',
-                    r'use',
-                    r'add',
-                    r'remove',
-                    r'consider',
-                    r'should be',
-                    r'update'
+                    r"change .+ to",
+                    r"replace .+ with",
+                    r"use",
+                    r"add",
+                    r"remove",
+                    r"consider",
+                    r"should be",
+                    r"update",
                 ]
-                
+
                 # Only use the suggestion if it doesn't contain explanatory text
-                is_valid_code = not any(re.search(pattern, suggestion_text.lower()) for pattern in meta_patterns)
-                
+                is_valid_code = not any(
+                    re.search(pattern, suggestion_text.lower())
+                    for pattern in meta_patterns
+                )
+
                 if is_valid_code:
                     body += f"```suggestion\n{suggestion_text}\n```"
                 else:
@@ -393,18 +411,20 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                 "body": body,
                 "commit_id": head_sha,
                 "path": filename,
-                "position": position
+                "position": position,
             }
 
             try:
                 response = requests.post(
                     f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/comments",
                     headers=HEADERS,
-                    json=comment_data
+                    json=comment_data,
                 )
                 response.raise_for_status()
                 comments_posted += 1
-                print(f"Posted comment on {filename}:{line_start}, position: {position}")
+                print(
+                    f"Posted comment on {filename}:{line_start}, position: {position}"
+                )
             except requests.exceptions.HTTPError as e:
                 print(f"Error posting comment: {e}")
                 print(f"Response content: {e.response.content.decode('utf-8')}")
@@ -416,18 +436,22 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str, exi
                         response = requests.post(
                             f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/comments",
                             headers=HEADERS,
-                            json=comment_data
+                            json=comment_data,
                         )
                         response.raise_for_status()
                         comments_posted += 1
-                        print(f"Posted comment without suggestion on {filename}:{line_start}")
+                        print(
+                            f"Posted comment without suggestion on {filename}:{line_start}"
+                        )
                     except requests.exceptions.HTTPError as e:
                         print(f"Still failed to post comment: {e}")
-                        print(f"Final response content: {e.response.content.decode('utf-8')}")
+                        print(
+                            f"Final response content: {e.response.content.decode('utf-8')}"
+                        )
 
         except Exception as e:
             print(f"Error processing suggestion: {e}")
-            
+
     return comments_posted
 
 
@@ -452,16 +476,17 @@ def calculate_positions(patch: str) -> List[Dict[int, int]]:
             # Parse the hunk header
             match = re.search(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
             if match:
-                current_line = int(match.group(1)) - 1  # Adjust to 0-based for the next increment
+                current_line = (
+                    int(match.group(1)) - 1
+                )  # Adjust to 0-based for the next increment
         elif not line.startswith("-"):
             # Only process added or context lines
             current_line += 1
             if line.startswith("+"):
                 # This is an added line
-                positions.append({
-                    "line_number": current_line,
-                    "position": position_counter
-                })
+                positions.append(
+                    {"line_number": current_line, "position": position_counter}
+                )
 
     return positions
 
@@ -472,10 +497,12 @@ def main():
     # Get files changed in the PR
     pr_files = get_pr_files()
     print(f"Found {len(pr_files)} files to review")
-    
+
     # Get existing comments to avoid duplicates
     existing_comments = get_existing_comments()
-    print(f"Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines")
+    print(
+        f"Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines"
+    )
 
     comment_count = 0
 
@@ -510,7 +537,9 @@ def main():
 
         # Post review comments (function now handles filtering by importance)
         if suggestions:
-            comments_posted = post_review_comments(filename, suggestions, patch, existing_comments)
+            comments_posted = post_review_comments(
+                filename, suggestions, patch, existing_comments
+            )
             comment_count += comments_posted
             print(f"Posted {comments_posted} comments for {filename}")
 

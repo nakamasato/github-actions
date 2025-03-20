@@ -15,3 +15,12 @@ jobs:
       - uses: nakamasato/github-actions/llm-pr-reviewer@nakamasato-patch-1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Poetry
+        uses: nakamasato/setup-poetry@1.6.5
+      - name: Run tests
+        run: poetry run pytest
