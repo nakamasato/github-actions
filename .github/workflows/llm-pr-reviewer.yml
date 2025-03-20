@@ -12,6 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nakamasato/github-actions/llm-pr-reviewer@llm-pr-reviewer
+      - uses: nakamasato/github-actions/llm-pr-reviewer@latest
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
