@@ -251,15 +251,27 @@ def get_existing_comments() -> Dict[str, Set[int]]:
             break
             
         for comment in results:
-            if comment["user"]["type"] == "Bot" or comment["body"].startswith("**Code Improvement Suggestion:**"):
-                path = comment["path"]
-                line = comment["line"] if "line" in comment else comment.get("original_line", 0)
+            path = comment["path"]
+            
+            # Extract the line number from the comment, handling multiple possible locations
+            line = None
+            # Try different possible locations for the line number
+            if comment.get("line") is not None:
+                line = comment["line"]
+            elif comment.get("original_line") is not None:
+                line = comment["original_line"]
+            elif comment.get("position") is not None:
+                # Position is fallback, but less accurate
+                line = comment["position"]
+            
+            # Skip if we couldn't determine a line number
+            if line is None:
+                continue
                 
-                if path not in comments:
-                    comments[path] = set()
-                
-                if line > 0:
-                    comments[path].add(line)
+            if path not in comments:
+                comments[path] = set()
+            
+            comments[path].add(line)
         
         page += 1
     
