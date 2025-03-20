@@ -5,7 +5,7 @@ import json
 import fnmatch
 import requests
 from openai import OpenAI
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set, Tuple
 
 # Configuration from environment
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -15,6 +15,7 @@ MAX_COMMENTS = int(os.getenv("MAX_COMMENTS", 5))
 EXCLUDE_PATTERNS = os.getenv("EXCLUDE_PATTERNS", "").split(",")
 PR_NUMBER = os.environ["PR_NUMBER"]
 REPO = os.environ["REPO"]
+COMMENT_THRESHOLD = float(os.getenv("COMMENT_THRESHOLD", "0.7"))  # Threshold for comment importance (0.0-1.0)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -171,19 +172,28 @@ Focus on:
 - Readability and maintainability
 """
 
-    prompt += """
+    prompt += f"""
 Format your response as JSON:
 [
-  {
+  {{
     "line_start": <number>,
     "line_end": <number>,
     "explanation": "<explanation>",
-    "suggestion": "<suggested code>"
-  },
+    "suggestion": "<suggested code>",
+    "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
+    "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
+  }},
   ...
 ]
 
-Limit to the most important 5 suggestions maximum.
+Provide a maximum of 10 suggestions, ordered by importance.
+For the importance field, use these guidelines:
+- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
+- 0.7-0.9: Important issues (significant performance issues, potential bugs)
+- 0.5-0.7: Moderate issues (code quality, maintainability)
+- 0.0-0.5: Minor issues (style, readability)
+
+Do not artificially inflate the importance rating.
 """
 
     try:
@@ -224,20 +234,68 @@ def get_pr_diff_info(pr_number: str) -> Dict[str, Any]:
         "base_sha": pr_data["base"]["sha"]
     }
 
-def post_review_comments(filename: str, suggestions: List[Dict], patch: str) -> None:
-    """Post review comments on the PR."""
+def get_existing_comments() -> Dict[str, Set[int]]:
+    """Get existing bot comments on the PR to avoid duplicates."""
+    comments = {}
+    page = 1
+    while True:
+        response = requests.get(
+            f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/comments",
+            headers=HEADERS,
+            params={"page": page, "per_page": 100}
+        )
+        response.raise_for_status()
+        results = response.json()
+        
+        if not results:
+            break
+            
+        for comment in results:
+            if comment["user"]["type"] == "Bot" or comment["body"].startswith("**Code Improvement Suggestion:**"):
+                path = comment["path"]
+                line = comment["line"] if "line" in comment else comment.get("original_line", 0)
+                
+                if path not in comments:
+                    comments[path] = set()
+                
+                if line > 0:
+                    comments[path].add(line)
+        
+        page += 1
+    
+    return comments
+
+def post_review_comments(filename: str, suggestions: List[Dict], patch: str, existing_comments: Dict[str, Set[int]]) -> int:
+    """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
     # Get PR diff information
     try:
         pr_info = get_pr_diff_info(PR_NUMBER)
         head_sha = pr_info["head_sha"]
     except Exception as e:
         print(f"Error getting PR diff info: {e}")
-        return
+        return 0
 
     # Parse the patch to get position information
     positions = calculate_positions(patch)
-
-    for suggestion in suggestions:
+    
+    # Get lines already commented on for this file
+    commented_lines = existing_comments.get(filename, set())
+    
+    # Filter out suggestions that are below the importance threshold
+    filtered_suggestions = [
+        s for s in suggestions 
+        if s.get("importance", 0) >= COMMENT_THRESHOLD and 
+        s["line_start"] not in commented_lines
+    ]
+    
+    # Sort by importance (highest first)
+    filtered_suggestions.sort(key=lambda x: x.get("importance", 0), reverse=True)
+    
+    # Only take the top suggestions
+    filtered_suggestions = filtered_suggestions[:MAX_COMMENTS]
+    
+    comments_posted = 0
+    for suggestion in filtered_suggestions:
         try:
             # Get the line number from the suggestion
             line_start = suggestion["line_start"]
@@ -254,7 +312,24 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str) -> 
                 continue
 
             # Format the comment body
-            body = f"**Code Improvement Suggestion:**\n\n{suggestion['explanation']}\n\n"
+            issue_type = suggestion.get("issue_type", "")
+            importance = suggestion.get("importance", 0)
+            
+            # Add badges for importance and issue type
+            badge = ""
+            if importance >= 0.9:
+                badge = "🔴 **Critical**"
+            elif importance >= 0.7:
+                badge = "🟠 **Important**"
+            elif importance >= 0.5:
+                badge = "🟡 **Moderate**"
+            else:
+                badge = "🟢 **Minor**"
+                
+            if issue_type:
+                badge += f" | {issue_type.capitalize()}"
+                
+            body = f"**Code Improvement Suggestion:** {badge}\n\n{suggestion['explanation']}\n\n"
 
             # Only include suggestion formatting if there's a clear replacement
             if suggestion.get("suggestion") and len(suggestion["suggestion"].strip()) > 0:
@@ -276,6 +351,7 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str) -> 
                     json=comment_data
                 )
                 response.raise_for_status()
+                comments_posted += 1
                 print(f"Posted comment on {filename}:{line_start}, position: {position}")
             except requests.exceptions.HTTPError as e:
                 print(f"Error posting comment: {e}")
@@ -291,6 +367,7 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str) -> 
                             json=comment_data
                         )
                         response.raise_for_status()
+                        comments_posted += 1
                         print(f"Posted comment without suggestion on {filename}:{line_start}")
                     except requests.exceptions.HTTPError as e:
                         print(f"Still failed to post comment: {e}")
@@ -298,6 +375,8 @@ def post_review_comments(filename: str, suggestions: List[Dict], patch: str) -> 
 
         except Exception as e:
             print(f"Error processing suggestion: {e}")
+            
+    return comments_posted
 
 def calculate_positions(patch: str) -> List[Dict[int, int]]:
     """
@@ -333,48 +412,16 @@ def calculate_positions(patch: str) -> List[Dict[int, int]]:
 
     return positions
 
-def parse_patch(patch: str) -> Dict[int, int]:
-    """Parse the git patch to map file line numbers to PR diff line numbers."""
-    if not patch:
-        return {}
-
-    line_map = {}
-    current_line = 0
-    diff_line = 0
-
-    for line in patch.split("\n"):
-        if line.startswith("@@"):
-            # Parse the hunk header
-            match = re.search(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
-            if match:
-                hunk_new_start = int(match.group(1))
-                current_line = hunk_new_start
-                diff_line = 0  # Reset diff line counter for this hunk
-        elif not line.startswith("-"):
-            # Only process added or context lines (not removed lines)
-            if line.startswith("+"):
-                # This is an added line
-                diff_line += 1
-                # For added lines in a brand new file, map the current line to the diff line
-                if current_line == 1 and hunk_new_start == 1:
-                    line_map[diff_line] = diff_line
-                else:
-                    line_map[current_line] = diff_line
-                current_line += 1
-            else:
-                # This is a context line
-                diff_line += 1
-                line_map[current_line] = diff_line
-                current_line += 1
-
-    return line_map
-
 def main():
     print("Starting PR code review...")
 
     # Get files changed in the PR
     pr_files = get_pr_files()
     print(f"Found {len(pr_files)} files to review")
+    
+    # Get existing comments to avoid duplicates
+    existing_comments = get_existing_comments()
+    print(f"Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines")
 
     comment_count = 0
 
@@ -404,16 +451,14 @@ def main():
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
         if remaining_comments <= 0:
+            print("Reached maximum comment limit. Stopping.")
             break
 
-        if len(suggestions) > remaining_comments:
-            suggestions = suggestions[:remaining_comments]
-
-        # Post review comments
+        # Post review comments (function now handles filtering by importance)
         if suggestions:
-            post_review_comments(filename, suggestions, patch)
-            comment_count += len(suggestions)
-            print(f"Posted {len(suggestions)} comments for {filename}")
+            comments_posted = post_review_comments(filename, suggestions, patch, existing_comments)
+            comment_count += comments_posted
+            print(f"Posted {comments_posted} comments for {filename}")
 
     print(f"PR review completed. Posted {comment_count} comments in total.")
 
