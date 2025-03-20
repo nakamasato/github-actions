@@ -1,4 +1,4 @@
-# Reusable Github Actions
+# Reusable GitHub Actions
 
 ## [Reusable Workflows](https://docs.github.com/en/actions/sharing-automations/reusing-workflows)
 
