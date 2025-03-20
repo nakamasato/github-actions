@@ -24,6 +24,10 @@ inputs:
   openai_api_key:
     description: 'OpenAI API key for code analysis'
     required: true
+  openai_model:
+    description: 'OpenAI model'
+    default: 'gpt-4o-mini'
+    required: false
 
 runs:
   using: 'composite'
@@ -48,6 +52,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
         FILE_EXTENSIONS: ${{ inputs.file_extensions }}
         MAX_COMMENTS: ${{ inputs.max_comments }}
         EXCLUDE_PATTERNS: ${{ inputs.exclude_patterns }}
