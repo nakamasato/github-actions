@@ -13,3 +13,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: nakamasato/github-actions/llm-pr-reviewer@llm-pr-reviewer
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
