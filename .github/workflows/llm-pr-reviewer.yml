@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Poetry
-        uses: nakamasato/github-actions/setup-poetry@1.6.5
+        uses: nakamasato/github-actions/setup-poetry@nakamasato-patch-1
+        with:
+          working-directory: llm-pr-reviewer
       - name: Run tests
         run: poetry run pytest
