@@ -210,7 +210,7 @@ Examples:
 2. GOOD suggestion: "actions/checkout@v3"
 
 1. BAD suggestion: "Add a null check before accessing the property"
-2. GOOD suggestion: "if (user !== null && user.profile) \{"
+2. GOOD suggestion: "if (user !== null && user.profile) \\{"
 
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 """
