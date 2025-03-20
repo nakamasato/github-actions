@@ -5,6 +5,9 @@ on:
     branches: [ main ]
 
 jobs:
+  permissions:
+    contents: read
+    pull_request: write
   test-action:
     runs-on: ubuntu-latest
     steps:
