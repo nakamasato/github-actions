@@ -35,11 +35,15 @@ def get_pr_files() -> List[Dict[str, Any]]:
     return [f for f in response.json() if should_review_file(f["filename"])]
 
 def should_review_file(filename: str) -> bool:
-    """Check if the file should be reviewed based on extension and exclude patterns."""
+    """Check if the file should be reviewed based on extension, workflow files, and exclude patterns."""
     # Skip files that match exclude patterns
     for pattern in EXCLUDE_PATTERNS:
         if pattern and fnmatch.fnmatch(filename, pattern):
             return False
+    
+    # Include GitHub Actions workflow files
+    if filename.startswith(".github/workflows/") and (filename.endswith(".yml") or filename.endswith(".yaml")):
+        return True
     
     # Check if file has an extension we want to review
     return any(filename.endswith(ext) for ext in FILE_EXTENSIONS)
@@ -89,6 +93,14 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
             r'require\s+[\'"](.+?)[\'"]',
             r'require_relative\s+[\'"](.+?)[\'"]',
         ],
+        '.yml': [
+            r'uses:\s+(.+?)@',
+            r'image:\s+[\'"]?(.+?)[\'"]?$',
+        ],
+        '.yaml': [
+            r'uses:\s+(.+?)@',
+            r'image:\s+[\'"]?(.+?)[\'"]?$',
+        ],
     }
     
     # Apply appropriate patterns based on file extension
@@ -105,6 +117,9 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
                     continue
                 if not ref.endswith('.js') and not ref.endswith('.ts'):
                     ref = f"{ref}.{ext[1:]}"
+            # Skip external references in GitHub Actions workflows
+            elif ext in ['.yml', '.yaml'] and '/' not in ref:
+                continue
             
             # Resolve relative paths
             if ref.startswith('.'):
@@ -136,12 +151,27 @@ Analyze the following code from {filename} and suggest specific improvements:
             ref_preview = "\n".join(ref_content.split("\n")[:20])
             prompt += f"File {ref_name}:\n```\n{ref_preview}\n...\n```\n\n"
     
-    prompt += """
-Please provide specific code improvement suggestions. For each suggestion:
-1. Identify the exact line number(s)
-2. Explain why the change is needed
-3. Provide the improved code
+    # Use specific prompt for GitHub Workflows
+    if filename.startswith(".github/workflows/") and (filename.endswith(".yml") or filename.endswith(".yaml")):
+        prompt += """
+For GitHub Actions workflows, focus on:
+- Security best practices (e.g., using SHA pinning for actions)  
+- Performance optimizations (caching, artifact handling)
+- Potential race conditions or workflow design issues
+- Unnecessary steps or job dependencies
+- GitHub Actions specific suggestions
+"""
+    else:
+        prompt += """
+Focus on:
+- Code quality and best practices
+- Performance improvements
+- Potential bugs or edge cases
+- Security issues
+- Readability and maintainability
+"""
 
+    prompt += """
 Format your response as JSON:
 [
   {
@@ -152,13 +182,6 @@ Format your response as JSON:
   },
   ...
 ]
-
-Focus on:
-- Code quality and best practices
-- Performance improvements
-- Potential bugs or edge cases
-- Security issues
-- Readability and maintainability
 
 Limit to the most important 5 suggestions maximum.
 """
