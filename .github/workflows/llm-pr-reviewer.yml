@@ -5,10 +5,10 @@ on:
     branches: [ main ]
 
 jobs:
-  permissions:
-    contents: read
-    pull_request: write
   test-action:
+    permissions:
+      contents: read
+      pull_request: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
