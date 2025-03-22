@@ -23,7 +23,7 @@ name: PR Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: LLM PR Reviewer
         uses: nakamasato/github-actions/llm-pr-reviewer@latest
         with:
@@ -58,9 +58,11 @@ The `GITHUB_TOKEN` is automatically provided by GitHub Actions.
 |-------|-------------|---------|
 | `github_token` | GitHub token for API access | Required |
 | `openai_api_key` | OpenAI API key for code analysis | Required |
+| `openai_model`| OpenAI model (e.g. gpt-4o-mini)| `gpt-4o-mini`|
 | `file_extensions` | File extensions to review (comma-separated) | `.js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.php,.cs` |
 | `max_comments` | Maximum number of comments per PR | `10` |
 | `exclude_patterns` | File patterns to exclude (comma-separated glob patterns) | `node_modules/**,dist/**,build/**,**/*.min.js` |
+| `debug` | Debug mode. If true, the bot will delete its own comments before posting new ones. The bot will also print debug information to the comments. | `false` |
 
 ## How It Works
 

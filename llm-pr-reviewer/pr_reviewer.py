@@ -9,6 +9,7 @@ import requests
 from openai import OpenAI
 
 # Configuration from environment
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -622,6 +623,59 @@ def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, ne
 
     return '\n'.join(result)
 
+def get_authenticated_user():
+    """Get information about the authenticated user (the owner of the token)."""
+    response = requests.get("https://api.github.com/user", headers=HEADERS)
+    response.raise_for_status()
+    return response.json()
+
+
+def delete_bot_comments():
+    """Delete comments authored by the authenticated user (bot)."""
+    # Get the authenticated user's ID
+    user_info = get_authenticated_user()
+    authenticated_user_id = user_info["id"]
+
+    print(f"Authenticated as user ID: {authenticated_user_id}")
+
+    # Get all comments on the PR
+    all_comments = []
+    page = 1
+    while True:
+        response = requests.get(
+            f"{GITHUB_API_URL}/pulls/{PR_NUMBER}/comments",
+            headers=HEADERS,
+            params={"page": page, "per_page": 100},
+        )
+        response.raise_for_status()
+        results = response.json()
+
+        if not results:
+            break
+
+        all_comments.extend(results)
+        page += 1
+
+    # Filter comments authored by the authenticated user
+    bot_comments = [comment for comment in all_comments if comment["user"]["id"] == authenticated_user_id]
+
+    # Delete each comment
+    deleted_count = 0
+    for comment in bot_comments:
+        comment_id = comment["id"]
+        try:
+            response = requests.delete(
+                f"{GITHUB_API_URL}/pulls/comments/{comment_id}",
+                headers=HEADERS
+            )
+            response.raise_for_status()
+            deleted_count += 1
+        except Exception as e:
+            print(f"Error deleting comment {comment_id}: {e}")
+
+    print(f"Deleted {deleted_count} comments authored by the bot")
+    return deleted_count
+
 def main():
     print("Starting PR code review...")
 
@@ -636,7 +690,9 @@ def main():
     )
 
     comment_count = 0
-    debug = True
+
+    if DEBUG:
+        delete_bot_comments()
 
     for file_info in pr_files:
         filename = file_info["filename"]
@@ -660,7 +716,7 @@ def main():
                 referenced_files[ref_path] = ref_content
 
         # Generate review comments
-        review_comments = generate_review_comments(patches, file_content, filename, referenced_files, debug=debug)
+        review_comments = generate_review_comments(patches, file_content, filename, referenced_files, debug=DEBUG)
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
@@ -671,7 +727,7 @@ def main():
         # Post review comments (function now handles filtering by importance)
         if review_comments:
             comments_posted = post_review_comments(
-                filename, review_comments, existing_comments, debug=debug
+                filename, review_comments, existing_comments, debug=DEBUG
             )
             comment_count += comments_posted
             print(f"Posted {comments_posted} comments for {filename}")

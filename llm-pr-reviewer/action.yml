@@ -28,6 +28,10 @@ inputs:
     description: 'OpenAI model'
     default: 'gpt-4o-mini'
     required: false
+  debug:
+    description: 'Debug mode. If true, the bot will delete its own comments before posting new ones. The bot will also print debug information to the comments.'
+    default: 'false'
+    required: false
 
 runs:
   using: 'composite'
@@ -41,11 +45,11 @@ runs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.13'
-        
+
     - name: Install dependencies
       run: pip install openai requests
       shell: bash
-      
+
     - name: Run PR Review
       run: python ${{ github.action_path }}/pr_reviewer.py
       shell: bash
@@ -58,3 +62,4 @@ runs:
         EXCLUDE_PATTERNS: ${{ inputs.exclude_patterns }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         REPO: ${{ github.repository }}
+        DEBUG: ${{ inputs.debug }}
