@@ -678,7 +678,7 @@ def delete_bot_comments():
         except Exception as e:
             print(f"Error deleting comment {comment_id}: {e}")
 
-    print(f"Deleted {deleted_count} comments authored by the bot")
+    print(f"[delete_bot_comments] Deleted {deleted_count} comments authored by the bot")
     return deleted_count
 
 def main():
