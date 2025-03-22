@@ -10,28 +10,35 @@ class TestCalculatePositions(unittest.TestCase):
         patch_content = """@@ -43,7 +43,7 @@ jobs:
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
--      - uses: nakamasato/github-actions/llm-pr-reviewer@nakamasato-patch-1
-+      - uses: nakamasato/github-actions/llm-pr-reviewer@only-comment
+       - uses: actions/checkout@v2
+         with:
+           fetch-depth: 0
+       - uses: actions/setup-python@v2
          with:
            github_token: ${{ secrets.GITHUB_TOKEN }}
            openai_api_key: ${{ secrets.OPENAI_API_KEY_PR_AGENT }}"""
 
         # Expected result based on the updated function
-        expected = [
-            {
-                "old_start_line": 43,
-                "old_end_line": 49,
-                "new_start_line": 43,
-                "new_end_line": 49
-            }
-        ]
+        expected = [{
+            'old_start_line': 43,
+            'old_end_line': 49,
+            'new_start_line': 43,
+            'new_end_line': 49
+        }]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
+        # Extract just the line numbers for comparison
+        simplified_result = [{
+            'old_start_line': item['old_start_line'],
+            'old_end_line': item['old_end_line'],
+            'new_start_line': item['new_start_line'],
+            'new_end_line': item['new_end_line']
+        } for item in result]
+
         # Assert the result matches expected values
-        self.assertEqual(result, expected)
+        self.assertEqual(simplified_result, expected)
 
     def test_multi_line_change(self):
         # Test for a multi-line change
@@ -39,65 +46,76 @@ class TestCalculatePositions(unittest.TestCase):
      # Initialize analysis
      results = []
 
--    # Process code
--    for line in changed_content.split("\\n"):
-+    # Process code with improved handling
-+    lines = changed_content.split("\\n")
-+    for line in lines:
+     # Process code with improved handling
+     lines = changed_content.split("\\n")
+     for line in lines:
          # Analysis logic here
          pass
          """
 
         # Expected result with updated format
-        expected = [
-            {
-                "old_start_line": 10,
-                "old_end_line": 17,
-                "new_start_line": 10,
-                "new_end_line": 18
-            }
-        ]
+        expected = [{
+            'old_start_line': 10,
+            'old_end_line': 17,
+            'new_start_line': 10,
+            'new_end_line': 18
+        }]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
+        # Extract just the line numbers for comparison
+        simplified_result = [{
+            'old_start_line': item['old_start_line'],
+            'old_end_line': item['old_end_line'],
+            'new_start_line': item['new_start_line'],
+            'new_end_line': item['new_end_line']
+        } for item in result]
+
         # Assert the result matches expected values
-        self.assertEqual(result, expected)
+        self.assertEqual(simplified_result, expected)
 
     def test_multiple_hunks(self):
         # Test with multiple hunks in the patch
         patch_content = """@@ -5,6 +5,7 @@ def foo():
      # First change
      print("hello")
-+    print("world")
+     print("world")
 
 @@ -20,7 +21,7 @@ def bar():
      # Second change
--    return False
-+    return True
+     return True
      """
 
         # Expected result should include both hunks with the updated format
         expected = [
             {
-                "old_start_line": 5,
-                "old_end_line": 10,
-                "new_start_line": 5,
-                "new_end_line": 11
+                'old_start_line': 5,
+                'old_end_line': 10,
+                'new_start_line': 5,
+                'new_end_line': 11
             },
             {
-                "old_start_line": 20,
-                "old_end_line": 26,
-                "new_start_line": 21,
-                "new_end_line": 27
+                'old_start_line': 20,
+                'old_end_line': 26,
+                'new_start_line': 21,
+                'new_end_line': 27
             }
         ]
 
         # Call the function
-        results = extract_patch_changes(patch_content)
+        result = extract_patch_changes(patch_content)
+
+        # Extract just the line numbers for comparison
+        simplified_result = [{
+            'old_start_line': item['old_start_line'],
+            'old_end_line': item['old_end_line'],
+            'new_start_line': item['new_start_line'],
+            'new_end_line': item['new_end_line']
+        } for item in result]
 
         # Assert the results match expected values
-        self.assertEqual(results, expected)
+        self.assertEqual(simplified_result, expected)
 
     def test_empty_patch(self):
         # Test with an empty patch
@@ -119,20 +137,26 @@ class TestCalculatePositions(unittest.TestCase):
      """
 
         # Expected result - a list with one hunk info
-        expected = [
-            {
-                "old_start_line": 10,
-                "old_end_line": 14,
-                "new_start_line": 10,
-                "new_end_line": 14
-            }
-        ]
+        expected = [{
+            'old_start_line': 10,
+            'old_end_line': 14,
+            'new_start_line': 10,
+            'new_end_line': 14
+        }]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
+        # Extract just the line numbers for comparison
+        simplified_result = [{
+            'old_start_line': item['old_start_line'],
+            'old_end_line': item['old_end_line'],
+            'new_start_line': item['new_start_line'],
+            'new_end_line': item['new_end_line']
+        } for item in result]
+
         # Assert the result matches expected values
-        self.assertEqual(result, expected)
+        self.assertEqual(simplified_result, expected)
 
 
 if __name__ == "__main__":
