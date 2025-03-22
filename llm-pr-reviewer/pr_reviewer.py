@@ -210,7 +210,7 @@ Format your response as JSON:
     "start_line": <number>,
     "end_line": <number>,
     "explanation": "<explanation>",
-    "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT or RIGHT. Use LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
+    "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
     "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
     "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
@@ -242,7 +242,9 @@ IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's
 Use "LEFT" for comments on deletions (with minus signs) that appear in red.
 Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
 
-IMPORTANT: The start_line and end_line fields must be part of the patch, which means the lines should be between the @@ - and @@ + lines in the patch.
+IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff (the ones marked with + or - at the beginning).
+In the patches, the line format is "OLD_LINE|NEW_LINE|CHANGED|CONTENT" where CHANGED is 'true' for lines that were added or removed.
+DO NOT comment on unchanged context lines that were not modified in the PR.
 """
 
     try:
@@ -603,7 +605,8 @@ def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, ne
         new_start: Starting line number for new content (right side)
 
     Returns:
-        String with format "OLD_LINE_NUM|NEW_LINE_NUM|CONTENT"
+        String with format "OLD_LINE_NUM|NEW_LINE_NUM|CHANGED|CONTENT"
+        where CHANGED is 'true' if the line was added or removed, 'false' otherwise
     """
     result = []
     old_line = old_start
@@ -614,20 +617,21 @@ def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, ne
         line = hunk_lines[i]
 
         if line.startswith('-'):
-            # Line only exists in the old version
-            result.append(f"{old_line}|---|{line}")
+            # Line only exists in the old version (removed line)
+            result.append(f"{old_line}|---|true|{line}")
             old_line += 1
         elif line.startswith('+'):
-            # Line only exists in the new version
-            result.append(f"---|{new_line}|{line}")
+            # Line only exists in the new version (added line)
+            result.append(f"---|{new_line}|true|{line}")
             new_line += 1
         else:
-            # Context line that exists in both versions
-            result.append(f"{old_line}|{new_line}|{line}")
+            # Context line that exists in both versions (unchanged)
+            result.append(f"{old_line}|{new_line}|false|{line}")
             old_line += 1
             new_line += 1
 
     return '\n'.join(result)
+
 
 def get_authenticated_user():
     """Get information about the authenticated user (the owner of the token)."""
