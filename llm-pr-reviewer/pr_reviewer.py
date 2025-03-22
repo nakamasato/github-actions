@@ -33,6 +33,70 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
+CODE_SUGGESTION_INSTRUCTION_PROMPT =  """
+Format your response as JSON:
+[
+  {
+    "start_line": <number>,
+    "end_line": <number>,
+    "explanation": "<explanation>",
+    "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
+    "suggestion": "<suggested code (optional)>",
+    "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
+    "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
+  },
+  ...
+]
+
+Provide a maximum of 10 comments (optionally include suggestion when if you have specific code suggestion), ordered by importance.
+For the importance field, use these guidelines:
+- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
+- 0.7-0.9: Important issues (significant performance issues, potential bugs)
+- 0.5-0.7: Moderate issues (code quality, maintainability)
+- 0.0-0.5: Minor issues (style, readability)
+
+Do not artificially inflate the importance rating.
+
+IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
+GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
+DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
+DO NOT suggest code that is not part of the changes in the patch.
+
+Examples:
+1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
+2. GOOD suggestion: "actions/checkout@v3"
+
+If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
+
+IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
+Use "LEFT" for comments on deletions (with minus signs) that appear in red.
+Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
+
+IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff (the ones marked with + or - at the beginning).
+In the patches, the line format is "OLD_LINE|NEW_LINE|CHANGED|CONTENT" where CHANGED is 'true' for lines that were added or removed.
+DO NOT comment on unchanged context lines that were not modified in the PR.
+When 'side' is 'LEFT', the start_line and end_line must be between the 'old_start_line' and 'old_end_line'.
+When 'side' is 'RIGHT', the start_line and end_line must be between the 'new_start_line' and 'new_end_line'.
+"""
+
+CODE_TYPE_INSTRUCTION_PROMPT = """
+Focus on:
+- Code quality and best practices
+- Performance improvements
+- Potential bugs or edge cases
+- Security issues
+- Readability and maintainability
+"""
+
+GITHUB_ACTIONS_INSTRUCTION_PROMPT = """
+For GitHub Actions workflows, focus on:
+- Security best practices (e.g., using SHA pinning for actions)
+- Performance optimizations (caching, artifact handling)
+- Potential race conditions or workflow design issues
+- Unnecessary steps or job dependencies
+- GitHub Actions specific suggestions
+"""
+
 
 def get_pr_files() -> List[Dict[str, Any]]:
     """Get the list of files changed in the PR."""
@@ -151,7 +215,6 @@ def generate_review_comments(
     file_content: str,
     filename: str,
     referenced_files: Dict[str, str],
-    debug: bool = False,
 ) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
@@ -160,7 +223,7 @@ Analyze the following code from {filename} and suggest specific improvements:
 """
     for i, patch in enumerate(patches):
         prompt += f"""
-Patch {i+1}:
+Patch {i+1} (old_start_line: {patch['old_start_line']}, old_end_line: {patch['old_end_line']}, new_start_line: {patch['new_start_line']}, new_end_line: {patch['new_end_line']}):
 ```
 {patch['content_with_line_numbers']}
 ```
@@ -185,67 +248,10 @@ Entire content of the file:
     if filename.startswith(".github/workflows/") and (
         filename.endswith(".yml") or filename.endswith(".yaml")
     ):
-        prompt += """
-For GitHub Actions workflows, focus on:
-- Security best practices (e.g., using SHA pinning for actions)
-- Performance optimizations (caching, artifact handling)
-- Potential race conditions or workflow design issues
-- Unnecessary steps or job dependencies
-- GitHub Actions specific suggestions
-"""
+        prompt += GITHUB_ACTIONS_INSTRUCTION_PROMPT
     else:
-        prompt += """
-Focus on:
-- Code quality and best practices
-- Performance improvements
-- Potential bugs or edge cases
-- Security issues
-- Readability and maintainability
-"""
-
-    prompt += """
-Format your response as JSON:
-[
-  {
-    "start_line": <number>,
-    "end_line": <number>,
-    "explanation": "<explanation>",
-    "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
-    "suggestion": "<suggested code (optional)>",
-    "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
-    "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
-  },
-  ...
-]
-
-Provide a maximum of 10 comments (optionally include suggestion when if you have specific code suggestion), ordered by importance.
-For the importance field, use these guidelines:
-- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
-- 0.7-0.9: Important issues (significant performance issues, potential bugs)
-- 0.5-0.7: Moderate issues (code quality, maintainability)
-- 0.0-0.5: Minor issues (style, readability)
-
-Do not artificially inflate the importance rating.
-
-IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
-GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
-DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
-DO NOT suggest code that is not part of the changes in the patch.
-
-Examples:
-1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
-2. GOOD suggestion: "actions/checkout@v3"
-
-If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
-
-IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
-Use "LEFT" for comments on deletions (with minus signs) that appear in red.
-Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
-
-IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff (the ones marked with + or - at the beginning).
-In the patches, the line format is "OLD_LINE|NEW_LINE|CHANGED|CONTENT" where CHANGED is 'true' for lines that were added or removed.
-DO NOT comment on unchanged context lines that were not modified in the PR.
-"""
+        prompt += CODE_TYPE_INSTRUCTION_PROMPT
+    prompt += CODE_SUGGESTION_INSTRUCTION_PROMPT
 
     try:
         # Using the new OpenAI client API format
@@ -270,16 +276,14 @@ DO NOT comment on unchanged context lines that were not modified in the PR.
             content = json_match.group(1)
 
         suggestions = json.loads(content)
-        if debug:
-            # add debug info to each item of suggestions
-            for suggestion in suggestions:
-                suggestion["debug_info"] = {
-                    "prompt": prompt,
-                    "patches": patches,
-                    "referenced_files": referenced_files,
-                    "filename": filename,
-                    "file_content": file_content
-                }
+        for suggestion in suggestions:
+            suggestion["debug_info"] = {
+                "prompt": prompt,
+                "patches": patches,
+                "referenced_files": referenced_files,
+                "filename": filename,
+                "file_content": file_content
+            }
         return suggestions
     except Exception as e:
         print(f"Error analyzing code: {e}")
@@ -342,7 +346,6 @@ def post_review_comments(
     filename: str,
     suggestions: List[Dict],
     existing_comments: Dict[str, Set[int]],
-    debug: bool = False,
 ) -> int:
     """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
     # Get PR diff information
@@ -427,17 +430,6 @@ def post_review_comments(
                     # We could potentially try to extract the actual code from the suggestion
                     # but that would require more complex parsing
 
-                if debug and "debug_info" in suggestion:
-                    body += f"""\n\n**Debug:**prompt:
-<details><summary>prompt</summary>
-
-````
-{suggestion['debug_info']['prompt']}
-````
-
-</details>
-"""
-
             # Post the comment with required parameters
             # https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
             comment_data = {
@@ -453,8 +445,25 @@ def post_review_comments(
             }
             if start_line != end_line:
                 comment_data["start_line"] = start_line # optional needed for multi-line suggestions
-            comment_without_body = {k:v for k,v in comment_data.items() if k != 'body'}
-            print(f"[post_review_comments] Comment data: {comment_without_body}")
+
+            is_valid_comment_line = False
+            matched_patch = None
+            patch_lines =  [{
+                "start_line": patch["old_start_line"] if side == 'LEFT' else patch["new_start_line"],
+                "end_line": patch["old_end_line"] if side == 'LEFT' else patch["new_end_line"],
+            } for patch in suggestion['debug_info']['patches']]
+            for patch in patch_lines:
+                if start_line >= patch['start_line'] and end_line <= patch['end_line']:
+                    is_valid_comment_line = True
+                    matched_patch = patch
+                    break
+
+            if not is_valid_comment_line:
+                print(f"[post_review_comments] Skipping comment on {filename}:{start_line}-{end_line} because it's not in the patch {patch_lines}")
+                continue
+
+            comment_metadata = {k:v for k,v in comment_data.items() if k not in ['body', 'commit_id']}
+            print(f"[post_review_comments] Comment metadata: {comment_metadata}, matched patch: {matched_patch}, explanation: {suggestion['explanation'][:100]}...")
 
             try:
                 response = requests.post(
@@ -683,7 +692,7 @@ def delete_comments():
         except Exception as e:
             print(f"Error deleting comment {comment_id}: {e}")
 
-    print(f"[delete_comments] Deleted {deleted_count} comments authored by the bot")
+    print(f"[delete_comments] Deleted {deleted_count} comments")
     return deleted_count
 
 def main():
@@ -700,7 +709,7 @@ def main():
     )
 
     comment_count = 0
-
+    check_referenced_files = False
     if DEBUG:
         delete_comments()
 
@@ -718,7 +727,7 @@ def main():
             continue
 
         # Get referenced files
-        referenced_files_paths = get_referenced_files(file_content, filename)
+        referenced_files_paths = get_referenced_files(file_content, filename) if check_referenced_files else []
         referenced_files = {}
         for ref_path in referenced_files_paths:
             ref_content = get_file_content(ref_path)
@@ -726,7 +735,7 @@ def main():
                 referenced_files[ref_path] = ref_content
 
         # Generate review comments
-        review_comments = generate_review_comments(patches, file_content, filename, referenced_files, debug=DEBUG)
+        review_comments = generate_review_comments(patches, file_content, filename, referenced_files)
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
@@ -736,11 +745,8 @@ def main():
 
         # Post review comments (function now handles filtering by importance)
         if review_comments:
-            comments_posted = post_review_comments(
-                filename, review_comments, existing_comments, debug=DEBUG
-            )
+            comments_posted = post_review_comments(filename, review_comments, existing_comments)
             comment_count += comments_posted
-            print(f"[main] Posted {comments_posted} comments for {filename}")
 
     print(f"[main] PR review completed. Posted {comment_count} comments in total.")
 

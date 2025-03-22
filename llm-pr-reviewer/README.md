@@ -90,6 +90,12 @@ users = [user for user in all_users if user.is_active]
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+You can run the script on your local:
+
+```
+DEBUG=true GITHUB_TOKEN=$(gh auth token) REPO=<owner>/<repo> PR_NUMBER=<pr number> poetry run python pr_reviewer.py
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
