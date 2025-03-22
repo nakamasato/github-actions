@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import fnmatch
+import json
 import os
 import re
-import json
-import fnmatch
+from typing import Any, Dict, List, Set
+
 import requests
 from openai import OpenAI
-from typing import List, Dict, Any, Set
 
 # Configuration from environment
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -144,18 +145,26 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
     return referenced_files
 
 
-def analyze_code(
-    changed_content: str, filename: str, referenced_files: Dict[str, str]
+def generate_review_comments(
+    patch: str,
+    file_content: str,
+    filename: str,
+    referenced_files: Dict[str, str],
 ) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
     prompt = f"""
 Analyze the following code from {filename} and suggest specific improvements:
 
-```
-{changed_content}
+Patch:
+```diff
+{patch}
 ```
 
+Entire content of the file:
+```
+{file_content}
+```
 """
 
     # Add referenced files as context
@@ -192,9 +201,10 @@ Focus on:
 Format your response as JSON:
 [
   {
-    "line_start": <number>,
-    "line_end": <number>,
+    "start_line": <number>,
+    "end_line": <number>,
     "explanation": "<explanation>",
+    "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT or RIGHT. Use LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
     "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
     "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
@@ -212,7 +222,7 @@ For the importance field, use these guidelines:
 Do not artificially inflate the importance rating.
 
 IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
-GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in line_start and line_end.
+GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
 DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
 
 Examples:
@@ -220,6 +230,8 @@ Examples:
 2. GOOD suggestion: "actions/checkout@v3"
 
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
+
+IMPORTANT: The start_line and end_line fields must be the lines that are being changed, which means the lines should be between the @@ - and @@ + lines in the patch.
 """
 
     try:
@@ -306,7 +318,6 @@ def get_existing_comments() -> Dict[str, Set[int]]:
 def post_review_comments(
     filename: str,
     suggestions: List[Dict],
-    patch: str,
     existing_comments: Dict[str, Set[int]],
 ) -> int:
     """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
@@ -318,9 +329,6 @@ def post_review_comments(
         print(f"Error getting PR diff info: {e}")
         return 0
 
-    # Parse the patch to get position information
-    positions = calculate_positions(patch)
-
     # Get lines already commented on for this file
     commented_lines = existing_comments.get(filename, set())
 
@@ -329,7 +337,7 @@ def post_review_comments(
         s
         for s in suggestions
         if s.get("importance", 0) >= COMMENT_THRESHOLD
-        and s["line_start"] not in commented_lines
+        and s["start_line"] not in commented_lines
     ]
 
     # Sort by importance (highest first)
@@ -342,21 +350,9 @@ def post_review_comments(
     for suggestion in filtered_suggestions:
         try:
             # Get the line number from the suggestion
-            line_start = suggestion["line_start"]
-
-            # Find the position in the diff
-            position = None
-            for pos_info in positions:
-                if pos_info["line_number"] == line_start:
-                    position = pos_info["position"]
-                    break
-
-            if position is None:
-                print(
-                    f"Could not find position for line {line_start} in file {filename}"
-                )
-                continue
-
+            start_line = suggestion["start_line"]
+            end_line = suggestion["end_line"]
+            side = suggestion["side"]
             # Format the comment body
             issue_type = suggestion.get("issue_type", "")
             importance = suggestion.get("importance", 0)
@@ -407,11 +403,18 @@ def post_review_comments(
                     # but that would require more complex parsing
 
             # Post the comment with required parameters
+            # https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
             comment_data = {
-                "body": body,
-                "commit_id": head_sha,
-                "path": filename,
-                "position": position,
+                "body": body, # required
+                "commit_id": head_sha, # required
+                "path": filename, # required
+                # "position": position, # deprecated
+                "start_line": start_line, # optional needed for multi-line suggestions
+                "line": end_line, # end line if multi-line
+                "side": side,
+                # "start_side": "RIGHT" or "LEFT" # optional
+                # "in_reply_to": <review comment id> # optional
+                # "subject_type": "file" or "line" # optional
             }
 
             try:
@@ -455,40 +458,68 @@ def post_review_comments(
     return comments_posted
 
 
-def calculate_positions(patch: str) -> List[Dict[int, int]]:
+
+def parse_hunk_header(hunk_header):
     """
-    Calculate the positions in the diff for each line number.
-    Position is a zero-based line index in the entire diff blob.
+    Parse a git diff hunk header like '@@ -a,b +c,d @@'
+    Returns a tuple of (old_start, old_count, new_start, new_count)
+    """
+    pattern = r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@'
+    match = re.match(pattern, hunk_header)
+
+    if not match:
+        return None
+
+    old_start_line = int(match.group(1))
+    old_count = int(match.group(2)) if match.group(2) else 1
+    new_start_line = int(match.group(3))
+    new_count = int(match.group(4)) if match.group(4) else 1
+    old_end_line = old_start_line + old_count - 1
+    new_end_line = new_start_line + new_count - 1
+
+    return old_start_line, old_end_line, new_start_line, new_end_line
+
+
+def extract_patch_changes(patch: str) -> List[Dict[int, int]]:
+    """
+    Extract patch changes from hunk headers.
+
+    Example:
+    ```
+    @@ -25,4 +25,5 @@ jobs:
+             with:
+               working-directory: llm-pr-reviewer
+           - name: Run tests
+    +        working-directory: llm-pr-reviewer
+             run: poetry run pytest
+    ```
+
+    Expected output: [{"old_start_line": 25, "old_end_line": 28, "new_start_line": 25, "new_end_line": 29}]
+
+
     """
     if not patch:
         return []
 
-    positions = []
-    position_counter = 0  # Zero-based counter for position in the diff
-    current_line = 0
+    changed_lines = []
 
     lines = patch.split("\n")
 
     for line in lines:
-        position_counter += 1  # Increment for each line in the diff
-
         if line.startswith("@@"):
             # Parse the hunk header
-            match = re.search(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
-            if match:
-                current_line = (
-                    int(match.group(1)) - 1
-                )  # Adjust to 0-based for the next increment
-        elif not line.startswith("-"):
-            # Only process added or context lines
-            current_line += 1
-            if line.startswith("+"):
-                # This is an added line
-                positions.append(
-                    {"line_number": current_line, "position": position_counter}
+            old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(line)
+            if old_start_line is not None:
+                changed_lines.append(
+                    {
+                        "old_start_line": old_start_line,
+                        "old_end_line": old_end_line,
+                        "new_start_line": new_start_line,
+                        "new_end_line": new_end_line,
+                    }
                 )
 
-    return positions
+    return changed_lines
 
 
 def main():
@@ -526,8 +557,8 @@ def main():
             if ref_content:
                 referenced_files[ref_path] = ref_content
 
-        # Analyze the code
-        suggestions = analyze_code(file_content, filename, referenced_files)
+        # Generate review comments
+        review_comments = generate_review_comments(patch, file_content, filename, referenced_files)
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
@@ -536,9 +567,9 @@ def main():
             break
 
         # Post review comments (function now handles filtering by importance)
-        if suggestions:
+        if review_comments:
             comments_posted = post_review_comments(
-                filename, suggestions, patch, existing_comments
+                filename, review_comments, existing_comments
             )
             comment_count += comments_posted
             print(f"Posted {comments_posted} comments for {filename}")

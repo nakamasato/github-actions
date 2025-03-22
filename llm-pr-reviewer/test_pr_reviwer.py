@@ -1,7 +1,7 @@
 import unittest
 
 # Assuming the function is in a module named pr_reviewer
-from pr_reviewer import calculate_positions
+from pr_reviewer import extract_patch_changes
 
 
 class TestCalculatePositions(unittest.TestCase):
@@ -17,11 +17,18 @@ class TestCalculatePositions(unittest.TestCase):
            github_token: ${{ secrets.GITHUB_TOKEN }}
            openai_api_key: ${{ secrets.OPENAI_API_KEY_PR_AGENT }}"""
 
-        # Expected result -
-        expected = [{"line_number": 46, "position": 6}]
+        # Expected result based on the updated function
+        expected = [
+            {
+                "old_start_line": 43,
+                "old_end_line": 49,
+                "new_start_line": 43,
+                "new_end_line": 49
+            }
+        ]
 
         # Call the function
-        result = calculate_positions(patch_content)
+        result = extract_patch_changes(patch_content)
 
         # Assert the result matches expected values
         self.assertEqual(result, expected)
@@ -41,15 +48,18 @@ class TestCalculatePositions(unittest.TestCase):
          pass
          """
 
-        # Expected result - line_start: 12, line_end: 14
+        # Expected result with updated format
         expected = [
-            {"line_number": 13, "position": 7},
-            {"line_number": 14, "position": 8},
-            {"line_number": 15, "position": 9},
+            {
+                "old_start_line": 10,
+                "old_end_line": 17,
+                "new_start_line": 10,
+                "new_end_line": 18
+            }
         ]
 
         # Call the function
-        result = calculate_positions(patch_content)
+        result = extract_patch_changes(patch_content)
 
         # Assert the result matches expected values
         self.assertEqual(result, expected)
@@ -67,27 +77,37 @@ class TestCalculatePositions(unittest.TestCase):
 +    return True
      """
 
-        # Expected result should include both hunks
-        expected_hunks = [
-            {"line_number": 7, "position": 4},  # First hunk, added line
-            {"line_number": 22, "position": 9},  # Second hunk, changed line
+        # Expected result should include both hunks with the updated format
+        expected = [
+            {
+                "old_start_line": 5,
+                "old_end_line": 10,
+                "new_start_line": 5,
+                "new_end_line": 11
+            },
+            {
+                "old_start_line": 20,
+                "old_end_line": 26,
+                "new_start_line": 21,
+                "new_end_line": 27
+            }
         ]
 
         # Call the function
-        results = calculate_positions(patch_content)
+        results = extract_patch_changes(patch_content)
 
         # Assert the results match expected values
-        self.assertEqual(results, expected_hunks)
+        self.assertEqual(results, expected)
 
     def test_empty_patch(self):
         # Test with an empty patch
         patch_content = ""
 
-        # Expected result - empty or None
-        result = calculate_positions(patch_content)
+        # Expected result - empty list
+        result = extract_patch_changes(patch_content)
 
-        # Assert the result is empty or None
-        self.assertFalse(result)  # Should be empty dict, None, or False
+        # Assert the result is an empty list
+        self.assertEqual(result, [])
 
     def test_no_change_patch(self):
         # Test with a patch that has context but no actual changes
@@ -98,11 +118,21 @@ class TestCalculatePositions(unittest.TestCase):
      # No actual changes
      """
 
-        # Expected result - empty or appropriate indication of no changes
-        result = calculate_positions(patch_content)
+        # Expected result - a list with one hunk info
+        expected = [
+            {
+                "old_start_line": 10,
+                "old_end_line": 14,
+                "new_start_line": 10,
+                "new_end_line": 14
+            }
+        ]
 
-        # Assert the result indicates no changes
-        self.assertFalse(result)  # Should be empty dict, None, or False
+        # Call the function
+        result = extract_patch_changes(patch_content)
+
+        # Assert the result matches expected values
+        self.assertEqual(result, expected)
 
 
 if __name__ == "__main__":
