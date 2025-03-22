@@ -425,9 +425,7 @@ def post_review_comments(
                 )
                 response.raise_for_status()
                 comments_posted += 1
-                print(
-                    f"Posted comment on {filename}:{line_start}, position: {position}"
-                )
+                print(f"Posted comment on {filename}:{start_line}-{end_line}")
             except requests.exceptions.HTTPError as e:
                 print(f"Error posting comment: {e}")
                 print(f"Response content: {e.response.content.decode('utf-8')}")
@@ -443,9 +441,7 @@ def post_review_comments(
                         )
                         response.raise_for_status()
                         comments_posted += 1
-                        print(
-                            f"Posted comment without suggestion on {filename}:{line_start}"
-                        )
+                        print(f"Posted comment without suggestion on {filename}:{start_line}-{end_line}")
                     except requests.exceptions.HTTPError as e:
                         print(f"Still failed to post comment: {e}")
                         print(
