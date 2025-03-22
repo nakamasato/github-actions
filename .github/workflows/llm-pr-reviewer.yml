@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./github-actions/llm-pr-reviewer
+      - uses: ./llm-pr-reviewer
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Poetry
-        uses: ./github-actions/setup-poetry
+        uses: ./setup-poetry
         with:
           working-directory: llm-pr-reviewer
       - name: Run tests
