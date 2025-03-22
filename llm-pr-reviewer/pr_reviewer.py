@@ -146,21 +146,26 @@ def get_referenced_files(file_content: str, filename: str) -> List[str]:
 
 
 def generate_review_comments(
-    patch: str,
+    patches: List[Dict[str, str]],
     file_content: str,
     filename: str,
     referenced_files: Dict[str, str],
+    debug: bool = False,
 ) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
     prompt = f"""
 Analyze the following code from {filename} and suggest specific improvements:
-
-Patch:
-```diff
-{patch}
+"""
+    for i, patch in enumerate(patches):
+        prompt += f"""
+Patch {i+1}:
 ```
+{patch['content_with_line_numbers']}
+```
+"""
 
+    prompt += f"""
 Entire content of the file:
 ```
 {file_content}
@@ -231,7 +236,7 @@ Examples:
 
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 
-IMPORTANT: The start_line and end_line fields must be the lines that are being changed, which means the lines should be between the @@ - and @@ + lines in the patch.
+IMPORTANT: The start_line and end_line fields must be part of the patch, which means the lines should be between the @@ - and @@ + lines in the patch.
 """
 
     try:
@@ -257,6 +262,16 @@ IMPORTANT: The start_line and end_line fields must be the lines that are being c
             content = json_match.group(1)
 
         suggestions = json.loads(content)
+        if debug:
+            # add debug info to each item of suggestions
+            for suggestion in suggestions:
+                suggestion["debug_info"] = {
+                    "prompt": prompt,
+                    "patches": patches,
+                    "referenced_files": referenced_files,
+                    "filename": filename,
+                    "file_content": file_content
+                }
         return suggestions
     except Exception as e:
         print(f"Error analyzing code: {e}")
@@ -319,6 +334,7 @@ def post_review_comments(
     filename: str,
     suggestions: List[Dict],
     existing_comments: Dict[str, Set[int]],
+    debug: bool = False,
 ) -> int:
     """Post review comments on the PR, avoiding duplicates. Returns the number of comments posted."""
     # Get PR diff information
@@ -377,6 +393,7 @@ def post_review_comments(
             suggestion_text = suggestion.get("suggestion", "").strip()
             if suggestion_text:
                 # Check if the suggestion contains any metacharacters or instructions
+                # TODO: remove this logic once we're confident the LLM is not adding any metacharacters
                 meta_patterns = [
                     r"change .+ to",
                     r"replace .+ with",
@@ -402,6 +419,17 @@ def post_review_comments(
                     # We could potentially try to extract the actual code from the suggestion
                     # but that would require more complex parsing
 
+                if debug and "debug_info" in suggestion:
+                    body += f"""\n\n**Debug:**prompt:
+<details><summary>prompt</summary>
+
+````
+{suggestion['debug_info']['prompt']}
+````
+
+</details>
+"""
+
             # Post the comment with required parameters
             # https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
             comment_data = {
@@ -409,13 +437,15 @@ def post_review_comments(
                 "commit_id": head_sha, # required
                 "path": filename, # required
                 # "position": position, # deprecated
-                "start_line": start_line, # optional needed for multi-line suggestions
-                "line": end_line, # end line if multi-line
+                "line": end_line, # line to comment on. end line if multi-line
                 "side": side,
                 # "start_side": "RIGHT" or "LEFT" # optional
                 # "in_reply_to": <review comment id> # optional
                 # "subject_type": "file" or "line" # optional
             }
+            if start_line != end_line:
+                comment_data["start_line"] = start_line # optional needed for multi-line suggestions
+            print(comment_data)
 
             try:
                 response = requests.post(
@@ -476,7 +506,7 @@ def parse_hunk_header(hunk_header):
     return old_start_line, old_end_line, new_start_line, new_end_line
 
 
-def extract_patch_changes(patch: str) -> List[Dict[int, int]]:
+def extract_patch_changes(patch: str) -> List[Dict[str, Any]]:
     """
     Extract patch changes from hunk headers.
 
@@ -491,32 +521,106 @@ def extract_patch_changes(patch: str) -> List[Dict[int, int]]:
     ```
 
     Expected output: [{"old_start_line": 25, "old_end_line": 28, "new_start_line": 25, "new_end_line": 29}]
-
-
     """
     if not patch:
         return []
 
-    changed_lines = []
+    hunks = []
+    current_hunk = []
+    current_header = None
 
-    lines = patch.split("\n")
+    lines = patch.split('\n')
 
     for line in lines:
-        if line.startswith("@@"):
-            # Parse the hunk header
-            old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(line)
-            if old_start_line is not None:
-                changed_lines.append(
-                    {
-                        "old_start_line": old_start_line,
-                        "old_end_line": old_end_line,
-                        "new_start_line": new_start_line,
-                        "new_end_line": new_end_line,
-                    }
+        if line.startswith('@@'):
+            # If we have a current hunk in progress, save it
+            if current_hunk and current_header:
+                old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(current_header)
+                content = '\n'.join(current_hunk)
+
+                # Add content with line numbers
+                content_with_line_numbers = generate_content_with_line_numbers(
+                    current_hunk,
+                    old_start_line,
+                    new_start_line
                 )
 
-    return changed_lines
+                hunks.append({
+                    'header': current_header,
+                    'content': content,
+                    'content_with_line_numbers': content_with_line_numbers,
+                    'old_start_line': old_start_line,
+                    'old_end_line': old_end_line,
+                    'new_start_line': new_start_line,
+                    'new_end_line': new_end_line
+                })
 
+            # Start a new hunk
+            current_header = line
+            current_hunk = [line]
+        elif current_hunk is not None:
+            current_hunk.append(line)
+
+    # Add the last hunk if there is one
+    if current_hunk and current_header:
+        old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(current_header)
+        content = '\n'.join(current_hunk)
+
+        # Add content with line numbers
+        content_with_line_numbers = generate_content_with_line_numbers(
+            current_hunk,
+            old_start_line,
+            new_start_line
+        )
+
+        hunks.append({
+            'header': current_header,
+            'content': content,
+            'content_with_line_numbers': content_with_line_numbers,
+            'old_start_line': old_start_line,
+            'old_end_line': old_end_line,
+            'new_start_line': new_start_line,
+            'new_end_line': new_end_line
+        })
+
+    return hunks
+
+
+def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, new_start: int) -> str:
+    """
+    Generate content with line numbers for both left (old) and right (new) sides of the diff.
+
+    Args:
+        hunk_lines: Lines of the current hunk
+        old_start: Starting line number for old content (left side)
+        new_start: Starting line number for new content (right side)
+
+    Returns:
+        String with format "OLD_LINE_NUM|NEW_LINE_NUM|CONTENT"
+    """
+    result = []
+    old_line = old_start
+    new_line = new_start
+
+    # Skip the hunk header line
+    for i in range(1, len(hunk_lines)):
+        line = hunk_lines[i]
+
+        if line.startswith('-'):
+            # Line only exists in the old version
+            result.append(f"{old_line}|---|{line}")
+            old_line += 1
+        elif line.startswith('+'):
+            # Line only exists in the new version
+            result.append(f"---|{new_line}|{line}")
+            new_line += 1
+        else:
+            # Context line that exists in both versions
+            result.append(f"{old_line}|{new_line}|{line}")
+            old_line += 1
+            new_line += 1
+
+    return '\n'.join(result)
 
 def main():
     print("Starting PR code review...")
@@ -532,10 +636,12 @@ def main():
     )
 
     comment_count = 0
+    debug = True
 
     for file_info in pr_files:
         filename = file_info["filename"]
         patch = file_info.get("patch", "")
+        patches = extract_patch_changes(patch)
 
         print(f"Reviewing {filename}")
 
@@ -554,7 +660,7 @@ def main():
                 referenced_files[ref_path] = ref_content
 
         # Generate review comments
-        review_comments = generate_review_comments(patch, file_content, filename, referenced_files)
+        review_comments = generate_review_comments(patches, file_content, filename, referenced_files, debug=debug)
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
@@ -565,7 +671,7 @@ def main():
         # Post review comments (function now handles filtering by importance)
         if review_comments:
             comments_posted = post_review_comments(
-                filename, review_comments, existing_comments
+                filename, review_comments, existing_comments, debug=debug
             )
             comment_count += comments_posted
             print(f"Posted {comments_posted} comments for {filename}")
