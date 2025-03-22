@@ -451,7 +451,8 @@ def post_review_comments(
             }
             if start_line != end_line:
                 comment_data["start_line"] = start_line # optional needed for multi-line suggestions
-            print(comment_data)
+            comment_without_body = {k:v for k,v in comment_data.items() if k != 'body'}
+            print(f"[post_review_comments] Comment data: {comment_without_body}")
 
             try:
                 response = requests.post(
@@ -635,13 +636,13 @@ def get_authenticated_user():
     return response.json()
 
 
-def delete_bot_comments():
-    """Delete comments authored by the authenticated user (bot)."""
+def delete_comments():
+    """Delete comments authored by the authenticated user."""
     # Get the authenticated user's ID
     user_info = get_authenticated_user()
     authenticated_user_id = user_info["id"]
 
-    print(f"[delete_bot_comments] Deleting comments authored by user ID: {authenticated_user_id}")
+    print(f"[delete_comments] Deleting comments authored by user ID: {authenticated_user_id}")
 
     # Get all comments on the PR
     all_comments = []
@@ -678,7 +679,7 @@ def delete_bot_comments():
         except Exception as e:
             print(f"Error deleting comment {comment_id}: {e}")
 
-    print(f"[delete_bot_comments] Deleted {deleted_count} comments authored by the bot")
+    print(f"[delete_comments] Deleted {deleted_count} comments authored by the bot")
     return deleted_count
 
 def main():
@@ -697,7 +698,7 @@ def main():
     comment_count = 0
 
     if DEBUG:
-        delete_bot_comments()
+        delete_comments()
 
     for file_info in pr_files:
         filename = file_info["filename"]
