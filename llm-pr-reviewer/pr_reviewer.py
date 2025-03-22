@@ -230,12 +230,17 @@ Do not artificially inflate the importance rating.
 IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
 GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
 DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
+DO NOT suggest code that is not part of the changes in the patch.
 
 Examples:
 1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
 2. GOOD suggestion: "actions/checkout@v3"
 
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
+
+IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
+Use "LEFT" for comments on deletions (with minus signs) that appear in red.
+Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
 
 IMPORTANT: The start_line and end_line fields must be part of the patch, which means the lines should be between the @@ - and @@ + lines in the patch.
 """
@@ -343,7 +348,7 @@ def post_review_comments(
         pr_info = get_pr_diff_info(PR_NUMBER)
         head_sha = pr_info["head_sha"]
     except Exception as e:
-        print(f"Error getting PR diff info: {e}")
+        print(f"[post_review_comments] Error getting PR diff info: {e}")
         return 0
 
     # Get lines already commented on for this file
@@ -456,10 +461,10 @@ def post_review_comments(
                 )
                 response.raise_for_status()
                 comments_posted += 1
-                print(f"Posted comment on {filename}:{start_line}-{end_line}")
+                print(f"[post_review_comments] Posted comment on {filename}:{start_line}-{end_line}")
             except requests.exceptions.HTTPError as e:
-                print(f"Error posting comment: {e}")
-                print(f"Response content: {e.response.content.decode('utf-8')}")
+                print(f"[post_review_comments] Error posting comment: {e}")
+                print(f"[post_review_comments] Response content: {e.response.content.decode('utf-8')}")
                 # Try without the suggestion formatting
                 if "```suggestion" in body:
                     body = body.split("```suggestion")[0].strip()
@@ -636,7 +641,7 @@ def delete_bot_comments():
     user_info = get_authenticated_user()
     authenticated_user_id = user_info["id"]
 
-    print(f"Authenticated as user ID: {authenticated_user_id}")
+    print(f"[delete_bot_comments] Deleting comments authored by user ID: {authenticated_user_id}")
 
     # Get all comments on the PR
     all_comments = []
@@ -677,16 +682,16 @@ def delete_bot_comments():
     return deleted_count
 
 def main():
-    print("Starting PR code review...")
+    print("[main] Starting PR code review...")
 
     # Get files changed in the PR
     pr_files = get_pr_files()
-    print(f"Found {len(pr_files)} files to review")
+    print(f"[main] Found {len(pr_files)} files to review")
 
     # Get existing comments to avoid duplicates
     existing_comments = get_existing_comments()
     print(
-        f"Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines"
+        f"[main] Found {sum(len(lines) for lines in existing_comments.values())} existing comment lines"
     )
 
     comment_count = 0
@@ -699,12 +704,12 @@ def main():
         patch = file_info.get("patch", "")
         patches = extract_patch_changes(patch)
 
-        print(f"Reviewing {filename}")
+        print(f"[main] Reviewing {filename}")
 
         # Get the content of the changed file
         file_content = get_file_content(filename)
         if not file_content:
-            print(f"Could not retrieve content for {filename}")
+            print(f"[main] Could not retrieve content for {filename}")
             continue
 
         # Get referenced files
@@ -721,7 +726,7 @@ def main():
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
         if remaining_comments <= 0:
-            print("Reached maximum comment limit. Stopping.")
+            print("[main] Reached maximum comment limit. Stopping.")
             break
 
         # Post review comments (function now handles filtering by importance)
@@ -730,9 +735,9 @@ def main():
                 filename, review_comments, existing_comments, debug=DEBUG
             )
             comment_count += comments_posted
-            print(f"Posted {comments_posted} comments for {filename}")
+            print(f"[main] Posted {comments_posted} comments for {filename}")
 
-    print(f"PR review completed. Posted {comment_count} comments in total.")
+    print(f"[main] PR review completed. Posted {comment_count} comments in total.")
 
 
 if __name__ == "__main__":
