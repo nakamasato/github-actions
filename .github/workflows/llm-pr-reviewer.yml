@@ -5,16 +5,18 @@ on:
     branches: [ main ]
 
 jobs:
-  test-action:
+  review:
     permissions:
       contents: read
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./llm-pr-reviewer
+      - name: llm-pr-reviewer
+        uses: ./llm-pr-reviewer
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 
   test:
     runs-on: ubuntu-latest
