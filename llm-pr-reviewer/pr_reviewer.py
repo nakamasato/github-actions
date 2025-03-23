@@ -33,39 +33,41 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
-CODE_SUGGESTION_INSTRUCTION_PROMPT =  """
+CODE_SUGGESTION_INSTRUCTION_PROMPT = """
 Format your response as JSON:
 [
   {
     "start_line": <number>,
     "end_line": <number>,
-    "explanation": "<explanation>",
+    "explanation": "<clear explanation with rationale>",
     "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
     "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
-    "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability'>"
+    "issue_type": "<type of issue: 'bug', 'security', 'performance', 'readability', 'maintainability', 'design', 'testing'>",
+    "confidence": <float between 0.0 and 1.0 indicating confidence in this suggestion>
   },
   ...
 ]
 
-Provide a maximum of 10 comments (optionally include suggestion when if you have specific code suggestion), ordered by importance.
-For the importance field, use these guidelines:
-- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs)
-- 0.7-0.9: Important issues (significant performance issues, potential bugs)
-- 0.5-0.7: Moderate issues (code quality, maintainability)
-- 0.0-0.5: Minor issues (style, readability)
+Provide a maximum of 5 high-quality comments, ordered by importance. Focus on substantive improvements rather than minor style issues unless specifically requested.
 
-Do not artificially inflate the importance rating.
+For the importance field, use these guidelines:
+- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs, data integrity problems)
+- 0.7-0.9: Important issues (significant performance issues, potential bugs, maintainability concerns)
+- 0.5-0.7: Moderate issues (code quality, design improvements)
+- 0.0-0.5: Minor issues (style, readability, documentation)
+
+Include the confidence level for each suggestion to indicate your certainty.
+
+Ensure explanations are:
+1. Precise and specific to the code
+2. Include the reasoning behind your suggestion
+3. Educational - explain the principle behind the improvement
+4. Actionable - clear what needs to be changed
 
 IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
 GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
-DO NOT include any explanatory text, comments, or descriptions in the suggestion field - put those in the explanation field instead.
-DO NOT suggest code that is not part of the changes in the patch.
-
-Examples:
-1. BAD suggestion: "Change 'actions/checkout@v2' to 'actions/checkout@v3'"
-2. GOOD suggestion: "actions/checkout@v3"
-
+DO NOT include any explanatory text, comments, or descriptions in the suggestion field.
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 
 IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
@@ -73,19 +75,39 @@ Use "LEFT" for comments on deletions (with minus signs) that appear in red.
 Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
 
 IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff (the ones marked with + or - at the beginning).
-In the patches, the line format is "OLD_LINE|NEW_LINE|CHANGED|CONTENT" where CHANGED is 'true' for lines that were added or removed.
-DO NOT comment on unchanged context lines that were not modified in the PR.
-When 'side' is 'LEFT', the start_line and end_line must be between the 'old_start_line' and 'old_end_line'.
-When 'side' is 'RIGHT', the start_line and end_line must be between the 'new_start_line' and 'new_end_line'.
 """
 
 CODE_TYPE_INSTRUCTION_PROMPT = """
-Focus on:
-- Code quality and best practices
-- Performance improvements
-- Potential bugs or edge cases
-- Security issues
-- Readability and maintainability
+Focus on providing high-value feedback in these areas:
+
+1. Code Quality and Best Practices:
+   - SOLID principles violations
+   - Design pattern application or misuse
+   - Error handling and edge cases
+   - Code duplication and reuse opportunities
+   - Variable/function naming clarity
+
+2. Performance Issues:
+   - Algorithmic inefficiencies (time/space complexity)
+   - Resource management (memory, connections, file handles)
+   - Unnecessary computations or data structures
+   - Database query optimizations
+
+3. Security Concerns:
+   - Input validation vulnerabilities
+   - Authentication/authorization flaws
+   - Data exposure risks
+   - Dependency security issues
+   - Secure coding practices
+
+4. Maintainability:
+   - Test coverage adequacy
+   - Documentation completeness
+   - Code organization and modularity
+   - Future compatibility considerations
+
+Prioritize actionable feedback that will meaningfully improve the codebase.
+Limit feedback on trivial stylistic issues unless they significantly impact readability.
 """
 
 GITHUB_ACTIONS_INSTRUCTION_PROMPT = """
@@ -215,6 +237,8 @@ def generate_review_comments(
     file_content: str,
     filename: str,
     referenced_files: Dict[str, str],
+    temperature: float = 0.2,
+    max_tokens: int = 2000,
 ) -> List[Dict]:
     """Use OpenAI to analyze code and suggest improvements."""
     # Build prompt with context
@@ -260,12 +284,12 @@ Entire content of the file:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a code review assistant. Analyze code and provide specific, helpful improvements as JSON.",
+                    "content": "You are an expert code reviewer with deep knowledge of software engineering principles, design patterns, and language-specific best practices. Analyze code to provide actionable, high-quality improvements that genuinely enhance the codebase. Focus on important issues rather than trivial style concerns.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.2,
-            max_tokens=2000,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
         # Extract JSON from response
@@ -276,6 +300,13 @@ Entire content of the file:
             content = json_match.group(1)
 
         suggestions = json.loads(content)
+
+        # Filter out low confidence suggestions
+        suggestions = [s for s in suggestions if s.get("confidence", 0.5) > 0.4]
+
+        # Sort by importance
+        suggestions.sort(key=lambda x: x.get("importance", 0), reverse=True)
+
         for suggestion in suggestions:
             suggestion["debug_info"] = {
                 "prompt": prompt,
@@ -381,54 +412,53 @@ def post_review_comments(
             end_line = suggestion["end_line"]
             side = suggestion["side"]
             # Format the comment body
-            issue_type = suggestion.get("issue_type", "")
+            issue_type = suggestion.get("issue_type", "").capitalize()
             importance = suggestion.get("importance", 0)
-
+            confidence = suggestion.get("confidence", 0)
             # Add badges for importance and issue type
-            badge = ""
             if importance >= 0.9:
-                badge = "🔴 **Critical**"
+                severity = "Critical"
+                badge_color = "🔴"
             elif importance >= 0.7:
-                badge = "🟠 **Important**"
+                severity = "Important"
+                badge_color = "🟠"
             elif importance >= 0.5:
-                badge = "🟡 **Moderate**"
+                severity = "Moderate"
+                badge_color = "🟡"
             else:
-                badge = "🟢 **Minor**"
+                severity = "Minor"
+                badge_color = "🟢"
 
-            if issue_type:
-                badge += f" | {issue_type.capitalize()}"
 
-            body = f"**Code Improvement Suggestion:** {badge}\n\n{suggestion['explanation']}\n\n"
+            explanation = suggestion['explanation']
+
+            issue_emoji = {
+                "Bug": "🐛",
+                "Security": "🔒",
+                "Performance": "⚡",
+                "Readability": "📖",
+                "Maintainability": "🧹",
+                "Design": "📐",
+                "Testing": "🧪"
+            }.get(issue_type, "💡")
+
+            # Build a more informative comment
+            body = f"{badge_color} **{severity}** {issue_emoji} **{issue_type}** Suggestion\n\n"
+
+            # Add the explanation with better formatting
+            body += f"{explanation}\n\n"
 
             # Only include suggestion formatting if there's a clear replacement
             suggestion_text = suggestion.get("suggestion", "").strip()
-            if suggestion_text:
-                # Check if the suggestion contains any metacharacters or instructions
-                # TODO: remove this logic once we're confident the LLM is not adding any metacharacters
-                meta_patterns = [
-                    r"change .+ to",
-                    r"replace .+ with",
-                    r"use",
-                    r"add",
-                    r"remove",
-                    r"consider",
-                    r"should be",
-                    r"update",
-                ]
-
-                # Only use the suggestion if it doesn't contain explanatory text
-                is_valid_code = not any(
-                    re.search(pattern, suggestion_text.lower())
-                    for pattern in meta_patterns
-                )
+            if suggestion_text and confidence > 0.6:
+                # Additional validation of suggestion text
+                is_valid_code = not re.search(r"^\s*(change|replace|use|add|remove|consider|should be|update)",
+                                             suggestion_text.lower())
 
                 if is_valid_code:
                     body += f"```suggestion\n{suggestion_text}\n```"
                 else:
                     print(f"Skipping invalid suggestion format: {suggestion_text}")
-                    # Use just the explanation without the suggestion block
-                    # We could potentially try to extract the actual code from the suggestion
-                    # but that would require more complex parsing
 
             # Post the comment with required parameters
             # https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
