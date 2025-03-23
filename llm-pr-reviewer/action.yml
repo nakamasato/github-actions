@@ -44,7 +44,7 @@ runs:
     - name: Set up Python
       uses: ./setup-poetry
       with:
-        python-version-file: pyproject.toml
+        python-version-file: llm-pr-reviewer/pyproject.toml
         working-directory: llm-pr-reviewer
 
     - name: Install dependencies
