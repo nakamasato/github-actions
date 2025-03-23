@@ -19,23 +19,28 @@ class TestCalculatePositions(unittest.TestCase):
            openai_api_key: ${{ secrets.OPENAI_API_KEY_PR_AGENT }}"""
 
         # Expected result based on the updated function
-        expected = [{
-            'old_start_line': 43,
-            'old_end_line': 49,
-            'new_start_line': 43,
-            'new_end_line': 49
-        }]
+        expected = [
+            {
+                "old_start_line": 43,
+                "old_end_line": 49,
+                "new_start_line": 43,
+                "new_end_line": 49,
+            }
+        ]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
         # Extract just the line numbers for comparison
-        simplified_result = [{
-            'old_start_line': item['old_start_line'],
-            'old_end_line': item['old_end_line'],
-            'new_start_line': item['new_start_line'],
-            'new_end_line': item['new_end_line']
-        } for item in result]
+        simplified_result = [
+            {
+                "old_start_line": item["old_start_line"],
+                "old_end_line": item["old_end_line"],
+                "new_start_line": item["new_start_line"],
+                "new_end_line": item["new_end_line"],
+            }
+            for item in result
+        ]
 
         # Assert the result matches expected values
         self.assertEqual(simplified_result, expected)
@@ -54,23 +59,28 @@ class TestCalculatePositions(unittest.TestCase):
          """
 
         # Expected result with updated format
-        expected = [{
-            'old_start_line': 10,
-            'old_end_line': 17,
-            'new_start_line': 10,
-            'new_end_line': 18
-        }]
+        expected = [
+            {
+                "old_start_line": 10,
+                "old_end_line": 17,
+                "new_start_line": 10,
+                "new_end_line": 18,
+            }
+        ]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
         # Extract just the line numbers for comparison
-        simplified_result = [{
-            'old_start_line': item['old_start_line'],
-            'old_end_line': item['old_end_line'],
-            'new_start_line': item['new_start_line'],
-            'new_end_line': item['new_end_line']
-        } for item in result]
+        simplified_result = [
+            {
+                "old_start_line": item["old_start_line"],
+                "old_end_line": item["old_end_line"],
+                "new_start_line": item["new_start_line"],
+                "new_end_line": item["new_end_line"],
+            }
+            for item in result
+        ]
 
         # Assert the result matches expected values
         self.assertEqual(simplified_result, expected)
@@ -90,29 +100,32 @@ class TestCalculatePositions(unittest.TestCase):
         # Expected result should include both hunks with the updated format
         expected = [
             {
-                'old_start_line': 5,
-                'old_end_line': 10,
-                'new_start_line': 5,
-                'new_end_line': 11
+                "old_start_line": 5,
+                "old_end_line": 10,
+                "new_start_line": 5,
+                "new_end_line": 11,
             },
             {
-                'old_start_line': 20,
-                'old_end_line': 26,
-                'new_start_line': 21,
-                'new_end_line': 27
-            }
+                "old_start_line": 20,
+                "old_end_line": 26,
+                "new_start_line": 21,
+                "new_end_line": 27,
+            },
         ]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
         # Extract just the line numbers for comparison
-        simplified_result = [{
-            'old_start_line': item['old_start_line'],
-            'old_end_line': item['old_end_line'],
-            'new_start_line': item['new_start_line'],
-            'new_end_line': item['new_end_line']
-        } for item in result]
+        simplified_result = [
+            {
+                "old_start_line": item["old_start_line"],
+                "old_end_line": item["old_end_line"],
+                "new_start_line": item["new_start_line"],
+                "new_end_line": item["new_end_line"],
+            }
+            for item in result
+        ]
 
         # Assert the results match expected values
         self.assertEqual(simplified_result, expected)
@@ -137,23 +150,28 @@ class TestCalculatePositions(unittest.TestCase):
      """
 
         # Expected result - a list with one hunk info
-        expected = [{
-            'old_start_line': 10,
-            'old_end_line': 14,
-            'new_start_line': 10,
-            'new_end_line': 14
-        }]
+        expected = [
+            {
+                "old_start_line": 10,
+                "old_end_line": 14,
+                "new_start_line": 10,
+                "new_end_line": 14,
+            }
+        ]
 
         # Call the function
         result = extract_patch_changes(patch_content)
 
         # Extract just the line numbers for comparison
-        simplified_result = [{
-            'old_start_line': item['old_start_line'],
-            'old_end_line': item['old_end_line'],
-            'new_start_line': item['new_start_line'],
-            'new_end_line': item['new_end_line']
-        } for item in result]
+        simplified_result = [
+            {
+                "old_start_line": item["old_start_line"],
+                "old_end_line": item["old_end_line"],
+                "new_start_line": item["new_start_line"],
+                "new_end_line": item["new_end_line"],
+            }
+            for item in result
+        ]
 
         # Assert the result matches expected values
         self.assertEqual(simplified_result, expected)
