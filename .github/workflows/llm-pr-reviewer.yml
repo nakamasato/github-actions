@@ -7,7 +7,7 @@ on:
 jobs:
   review:
     permissions:
-      contents: read
+      contents: write # necessary for debug mode
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
