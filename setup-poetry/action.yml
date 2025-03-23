@@ -3,7 +3,7 @@ inputs:
     description: The version of poetry to install
     required: false
   python-version-file:
-    description: Python version file passed to setup-python (e.g. .python-version, pyproject.toml
+    description: Python version file passed to setup-python (e.g. .python-version, pyproject.toml)
     required: false
     default: ''
   python-version:

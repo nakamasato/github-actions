@@ -42,9 +42,10 @@ runs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: ./setup-poetry
       with:
-        python-version: '3.13'
+        python-version-file: llm-pr-reviewer/pyproject.toml
+        working-directory: llm-pr-reviewer
 
     - name: Install dependencies
       run: pip install openai requests

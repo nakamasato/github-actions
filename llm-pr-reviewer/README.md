@@ -62,7 +62,7 @@ The `GITHUB_TOKEN` is automatically provided by GitHub Actions.
 | `file_extensions` | File extensions to review (comma-separated) | `.js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.php,.cs` |
 | `max_comments` | Maximum number of comments per PR | `10` |
 | `exclude_patterns` | File patterns to exclude (comma-separated glob patterns) | `node_modules/**,dist/**,build/**,**/*.min.js` |
-| `debug` | Debug mode. If true, the bot will delete its own comments before posting new ones. The bot will also print debug information to the comments. | `false` |
+| `debug` | Debug mode. If true, the bot will delete its own comments before posting new ones. The bot will also print debug information to the comments. Currently not available ❌️ (fail to get https://api.github.com/user) | `false` |
 
 ## How It Works
 
