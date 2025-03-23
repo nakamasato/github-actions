@@ -6,13 +6,11 @@ import re
 from typing import Any, Dict, List, Set
 
 import requests
-from openai import OpenAI
+from llm_providers import create_llm_provider
 
 # Configuration from environment
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 FILE_EXTENSIONS = os.getenv(
     "FILE_EXTENSIONS", ".js,.ts,.jsx,.tsx,.py,.java,.go,.rb,.md,.yml,.yaml"
 ).split(",")
@@ -24,8 +22,8 @@ COMMENT_THRESHOLD = float(
     os.getenv("COMMENT_THRESHOLD", "0.7")
 )  # Threshold for comment importance (0.0-1.0)
 
-# Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize LLM provider
+llm_provider = create_llm_provider()
 
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO}"
 HEADERS = {
@@ -281,22 +279,8 @@ Entire content of the file:
     prompt += CODE_SUGGESTION_INSTRUCTION_PROMPT
 
     try:
-        # Using the new OpenAI client API format
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an expert code reviewer with deep knowledge of software engineering principles, design patterns, and language-specific best practices. Analyze code to provide actionable, high-quality improvements that genuinely enhance the codebase. Focus on important issues rather than trivial style concerns.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-
-        # Extract JSON from response
-        content = response.choices[0].message.content.strip()
+        # Generate review using the LLM provider
+        content = llm_provider.generate_review(prompt, temperature, max_tokens)
         # Handle case where the response might contain markdown code blocks
         json_match = re.search(r"```(?:json)?\s*(\[[\s\S]+?\])\s*```", content)
         if json_match:
