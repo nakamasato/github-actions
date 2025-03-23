@@ -70,6 +70,9 @@ GitHub PR suggestions must contain ONLY the exact code that should replace the l
 DO NOT include any explanatory text, comments, or descriptions in the suggestion field.
 If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 
+CRITICAL: Maintain the EXACT INDENTATION from the original code in your suggestions. The indentation must match perfectly.
+Do not use placeholder values like <commit_sha>, <version>, etc. in suggestions - they cannot be directly applied.
+
 IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
 Use "LEFT" for comments on deletions (with minus signs) that appear in red.
 Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
