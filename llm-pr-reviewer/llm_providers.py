@@ -1,16 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any
 import os
 from openai import OpenAI
 import anthropic
+
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    def generate_review(self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000) -> str:
+    def generate_review(
+        self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000
+    ) -> str:
         """Generate a code review response."""
         pass
+
 
 class OpenAIProvider(LLMProvider):
     """OpenAI implementation of LLM provider."""
@@ -20,7 +23,9 @@ class OpenAIProvider(LLMProvider):
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.client = OpenAI(api_key=self.api_key)
 
-    def generate_review(self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000) -> str:
+    def generate_review(
+        self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000
+    ) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -35,6 +40,7 @@ class OpenAIProvider(LLMProvider):
         )
         return response.choices[0].message.content.strip()
 
+
 class AnthropicProvider(LLMProvider):
     """Anthropic implementation of LLM provider."""
 
@@ -43,18 +49,23 @@ class AnthropicProvider(LLMProvider):
         self.model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
         self.client = anthropic.Anthropic(api_key=self.api_key)
 
-    def generate_review(self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000) -> str:
+    def generate_review(
+        self, prompt: str, temperature: float = 0.2, max_tokens: int = 2000
+    ) -> str:
         response = self.client.messages.create(
             model=self.model,
-            messages=[{
-                "role": "user",
-                "content": prompt,
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
             system="You are an expert code reviewer with deep knowledge of software engineering principles, design patterns, and language-specific best practices. Analyze code to provide actionable, high-quality improvements that genuinely enhance the codebase. Focus on important issues rather than trivial style concerns.",
             temperature=temperature,
             max_tokens=max_tokens,
         )
         return response.content[0].text
+
 
 def create_llm_provider(provider_type: str | None = None) -> LLMProvider:
     """Factory function to create LLM provider instances."""

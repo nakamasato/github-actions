@@ -248,9 +248,9 @@ Analyze the following code from {filename} and suggest specific improvements:
 """
     for i, patch in enumerate(patches):
         prompt += f"""
-Patch {i+1} (old_start_line: {patch['old_start_line']}, old_end_line: {patch['old_end_line']}, new_start_line: {patch['new_start_line']}, new_end_line: {patch['new_end_line']}):
+Patch {i + 1} (old_start_line: {patch["old_start_line"]}, old_end_line: {patch["old_end_line"]}, new_start_line: {patch["new_start_line"]}, new_end_line: {patch["new_end_line"]}):
 ```
-{patch['content_with_line_numbers']}
+{patch["content_with_line_numbers"]}
 ```
 """
 
@@ -300,7 +300,7 @@ Entire content of the file:
                 "patches": patches,
                 "referenced_files": referenced_files,
                 "filename": filename,
-                "file_content": file_content
+                "file_content": file_content,
             }
         return suggestions
     except Exception as e:
@@ -416,8 +416,7 @@ def post_review_comments(
                 severity = "Minor"
                 badge_color = "🟢"
 
-
-            explanation = suggestion['explanation']
+            explanation = suggestion["explanation"]
 
             issue_emoji = {
                 "Bug": "🐛",
@@ -426,7 +425,7 @@ def post_review_comments(
                 "Readability": "📖",
                 "Maintainability": "🧹",
                 "Design": "📐",
-                "Testing": "🧪"
+                "Testing": "🧪",
             }.get(issue_type, "💡")
 
             # Build a more informative comment
@@ -439,8 +438,10 @@ def post_review_comments(
             suggestion_text = suggestion.get("suggestion", "").strip()
             if suggestion_text and confidence > 0.6:
                 # Additional validation of suggestion text
-                is_valid_code = not re.search(r"^\s*(change|replace|use|add|remove|consider|should be|update)",
-                                             suggestion_text.lower())
+                is_valid_code = not re.search(
+                    r"^\s*(change|replace|use|add|remove|consider|should be|update)",
+                    suggestion_text.lower(),
+                )
 
                 if is_valid_code:
                     body += f"```suggestion\n{suggestion_text}\n```"
@@ -450,37 +451,52 @@ def post_review_comments(
             # Post the comment with required parameters
             # https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
             comment_data = {
-                "body": body, # required
-                "commit_id": head_sha, # required
-                "path": filename, # required
+                "body": body,  # required
+                "commit_id": head_sha,  # required
+                "path": filename,  # required
                 # "position": position, # deprecated
-                "line": end_line, # line to comment on. end line if multi-line
+                "line": end_line,  # line to comment on. end line if multi-line
                 "side": side,
                 # "start_side": "RIGHT" or "LEFT" # optional
                 # "in_reply_to": <review comment id> # optional
                 # "subject_type": "file" or "line" # optional
             }
             if start_line != end_line:
-                comment_data["start_line"] = start_line # optional needed for multi-line suggestions
+                comment_data["start_line"] = (
+                    start_line  # optional needed for multi-line suggestions
+                )
 
             is_valid_comment_line = False
             matched_patch = None
-            patch_lines =  [{
-                "start_line": patch["old_start_line"] if side == 'LEFT' else patch["new_start_line"],
-                "end_line": patch["old_end_line"] if side == 'LEFT' else patch["new_end_line"],
-            } for patch in suggestion['debug_info']['patches']]
+            patch_lines = [
+                {
+                    "start_line": patch["old_start_line"]
+                    if side == "LEFT"
+                    else patch["new_start_line"],
+                    "end_line": patch["old_end_line"]
+                    if side == "LEFT"
+                    else patch["new_end_line"],
+                }
+                for patch in suggestion["debug_info"]["patches"]
+            ]
             for patch in patch_lines:
-                if start_line >= patch['start_line'] and end_line <= patch['end_line']:
+                if start_line >= patch["start_line"] and end_line <= patch["end_line"]:
                     is_valid_comment_line = True
                     matched_patch = patch
                     break
 
             if not is_valid_comment_line:
-                print(f"[post_review_comments] Skipping comment on {filename}:{start_line}-{end_line} because it's not in the patch {patch_lines}")
+                print(
+                    f"[post_review_comments] Skipping comment on {filename}:{start_line}-{end_line} because it's not in the patch {patch_lines}"
+                )
                 continue
 
-            comment_metadata = {k:v for k,v in comment_data.items() if k not in ['body', 'commit_id']}
-            print(f"[post_review_comments] Comment metadata: {comment_metadata}, matched patch: {matched_patch}, explanation: {suggestion['explanation'][:100]}...")
+            comment_metadata = {
+                k: v for k, v in comment_data.items() if k not in ["body", "commit_id"]
+            }
+            print(
+                f"[post_review_comments] Comment metadata: {comment_metadata}, matched patch: {matched_patch}, explanation: {suggestion['explanation'][:100]}..."
+            )
 
             try:
                 response = requests.post(
@@ -490,10 +506,14 @@ def post_review_comments(
                 )
                 response.raise_for_status()
                 comments_posted += 1
-                print(f"[post_review_comments] Posted comment on {filename}:{start_line}-{end_line}")
+                print(
+                    f"[post_review_comments] Posted comment on {filename}:{start_line}-{end_line}"
+                )
             except requests.exceptions.HTTPError as e:
                 print(f"[post_review_comments] Error posting comment: {e}")
-                print(f"[post_review_comments] Response content: {e.response.content.decode('utf-8')}")
+                print(
+                    f"[post_review_comments] Response content: {e.response.content.decode('utf-8')}"
+                )
                 # Try without the suggestion formatting
                 if "```suggestion" in body:
                     body = body.split("```suggestion")[0].strip()
@@ -506,7 +526,9 @@ def post_review_comments(
                         )
                         response.raise_for_status()
                         comments_posted += 1
-                        print(f"Posted comment without suggestion on {filename}:{start_line}-{end_line}")
+                        print(
+                            f"Posted comment without suggestion on {filename}:{start_line}-{end_line}"
+                        )
                     except requests.exceptions.HTTPError as e:
                         print(f"Still failed to post comment: {e}")
                         print(
@@ -519,13 +541,12 @@ def post_review_comments(
     return comments_posted
 
 
-
 def parse_hunk_header(hunk_header):
     """
     Parse a git diff hunk header like '@@ -a,b +c,d @@'
     Returns a tuple of (old_start, old_count, new_start, new_count)
     """
-    pattern = r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@'
+    pattern = r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@"
     match = re.match(pattern, hunk_header)
 
     if not match:
@@ -564,31 +585,36 @@ def extract_patch_changes(patch: str) -> List[Dict[str, Any]]:
     current_hunk = []
     current_header = None
 
-    lines = patch.split('\n')
+    lines = patch.split("\n")
 
     for line in lines:
-        if line.startswith('@@'):
+        if line.startswith("@@"):
             # If we have a current hunk in progress, save it
             if current_hunk and current_header:
-                old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(current_header)
-                content = '\n'.join(current_hunk)
+                (
+                    old_start_line,
+                    old_end_line,
+                    new_start_line,
+                    new_end_line,
+                ) = parse_hunk_header(current_header)
+                content = "\n".join(current_hunk)
 
                 # Add content with line numbers
                 content_with_line_numbers = generate_content_with_line_numbers(
-                    current_hunk,
-                    old_start_line,
-                    new_start_line
+                    current_hunk, old_start_line, new_start_line
                 )
 
-                hunks.append({
-                    'header': current_header,
-                    'content': content,
-                    'content_with_line_numbers': content_with_line_numbers,
-                    'old_start_line': old_start_line,
-                    'old_end_line': old_end_line,
-                    'new_start_line': new_start_line,
-                    'new_end_line': new_end_line
-                })
+                hunks.append(
+                    {
+                        "header": current_header,
+                        "content": content,
+                        "content_with_line_numbers": content_with_line_numbers,
+                        "old_start_line": old_start_line,
+                        "old_end_line": old_end_line,
+                        "new_start_line": new_start_line,
+                        "new_end_line": new_end_line,
+                    }
+                )
 
             # Start a new hunk
             current_header = line
@@ -598,30 +624,34 @@ def extract_patch_changes(patch: str) -> List[Dict[str, Any]]:
 
     # Add the last hunk if there is one
     if current_hunk and current_header:
-        old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(current_header)
-        content = '\n'.join(current_hunk)
+        old_start_line, old_end_line, new_start_line, new_end_line = parse_hunk_header(
+            current_header
+        )
+        content = "\n".join(current_hunk)
 
         # Add content with line numbers
         content_with_line_numbers = generate_content_with_line_numbers(
-            current_hunk,
-            old_start_line,
-            new_start_line
+            current_hunk, old_start_line, new_start_line
         )
 
-        hunks.append({
-            'header': current_header,
-            'content': content,
-            'content_with_line_numbers': content_with_line_numbers,
-            'old_start_line': old_start_line,
-            'old_end_line': old_end_line,
-            'new_start_line': new_start_line,
-            'new_end_line': new_end_line
-        })
+        hunks.append(
+            {
+                "header": current_header,
+                "content": content,
+                "content_with_line_numbers": content_with_line_numbers,
+                "old_start_line": old_start_line,
+                "old_end_line": old_end_line,
+                "new_start_line": new_start_line,
+                "new_end_line": new_end_line,
+            }
+        )
 
     return hunks
 
 
-def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, new_start: int) -> str:
+def generate_content_with_line_numbers(
+    hunk_lines: List[str], old_start: int, new_start: int
+) -> str:
     """
     Generate content with line numbers for both left (old) and right (new) sides of the diff.
 
@@ -642,11 +672,11 @@ def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, ne
     for i in range(1, len(hunk_lines)):
         line = hunk_lines[i]
 
-        if line.startswith('-'):
+        if line.startswith("-"):
             # Line only exists in the old version (removed line)
             result.append(f"{old_line}|---|true|{line}")
             old_line += 1
-        elif line.startswith('+'):
+        elif line.startswith("+"):
             # Line only exists in the new version (added line)
             result.append(f"---|{new_line}|true|{line}")
             new_line += 1
@@ -656,7 +686,7 @@ def generate_content_with_line_numbers(hunk_lines: List[str], old_start: int, ne
             old_line += 1
             new_line += 1
 
-    return '\n'.join(result)
+    return "\n".join(result)
 
 
 def get_authenticated_user():
@@ -672,7 +702,9 @@ def delete_comments():
     user_info = get_authenticated_user()
     authenticated_user_id = user_info["id"]
 
-    print(f"[delete_comments] Deleting comments authored by user ID: {authenticated_user_id}")
+    print(
+        f"[delete_comments] Deleting comments authored by user ID: {authenticated_user_id}"
+    )
 
     # Get all comments on the PR
     all_comments = []
@@ -693,7 +725,11 @@ def delete_comments():
         page += 1
 
     # Filter comments authored by the authenticated user
-    bot_comments = [comment for comment in all_comments if comment["user"]["id"] == authenticated_user_id]
+    bot_comments = [
+        comment
+        for comment in all_comments
+        if comment["user"]["id"] == authenticated_user_id
+    ]
 
     # Delete each comment
     deleted_count = 0
@@ -701,8 +737,7 @@ def delete_comments():
         comment_id = comment["id"]
         try:
             response = requests.delete(
-                f"{GITHUB_API_URL}/pulls/comments/{comment_id}",
-                headers=HEADERS
+                f"{GITHUB_API_URL}/pulls/comments/{comment_id}", headers=HEADERS
             )
             response.raise_for_status()
             deleted_count += 1
@@ -711,6 +746,7 @@ def delete_comments():
 
     print(f"[delete_comments] Deleted {deleted_count} comments")
     return deleted_count
+
 
 def main():
     print("[main] Starting PR code review...")
@@ -744,7 +780,11 @@ def main():
             continue
 
         # Get referenced files
-        referenced_files_paths = get_referenced_files(file_content, filename) if check_referenced_files else []
+        referenced_files_paths = (
+            get_referenced_files(file_content, filename)
+            if check_referenced_files
+            else []
+        )
         referenced_files = {}
         for ref_path in referenced_files_paths:
             ref_content = get_file_content(ref_path)
@@ -752,7 +792,9 @@ def main():
                 referenced_files[ref_path] = ref_content
 
         # Generate review comments
-        review_comments = generate_review_comments(patches, file_content, filename, referenced_files)
+        review_comments = generate_review_comments(
+            patches, file_content, filename, referenced_files
+        )
 
         # Limit the total number of comments
         remaining_comments = MAX_COMMENTS - comment_count
@@ -762,7 +804,9 @@ def main():
 
         # Post review comments (function now handles filtering by importance)
         if review_comments:
-            comments_posted = post_review_comments(filename, review_comments, existing_comments)
+            comments_posted = post_review_comments(
+                filename, review_comments, existing_comments
+            )
             comment_count += comments_posted
 
     print(f"[main] PR review completed. Posted {comment_count} comments in total.")
