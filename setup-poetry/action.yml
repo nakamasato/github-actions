@@ -29,7 +29,7 @@ runs:
       name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version-file: ${{ inputs.working-directory }}/${{ inputs.python-version-file }}
+        python-version-file: "${{ inputs.working-directory }}/${{ inputs.python-version-file }}"
         python-version: ${{ inputs.python-version }}
 
     - name: get poetry version from .tool-versions
