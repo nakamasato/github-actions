@@ -53,7 +53,7 @@ runs:
         fetch-depth: 0
 
     - name: Set up Python
-      uses: ./setup-poetry
+      uses: nakamasato/github-actions/setup-poetry@main
       with:
         python-version-file: llm-pr-reviewer/pyproject.toml
         working-directory: llm-pr-reviewer
