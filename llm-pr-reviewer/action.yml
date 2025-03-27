@@ -47,16 +47,21 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout repository
+    - name: Checkout github actions repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        repository: nakamasato/github-actions
 
     - name: Set up Python
       uses: nakamasato/github-actions/setup-poetry@main
       with:
         python-version-file: llm-pr-reviewer/pyproject.toml
         working-directory: llm-pr-reviewer
+
+    # TODO: if there's need to configure any args for checkout
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: Run PR Review
       run: poetry run python ${{ github.action_path }}/pr_reviewer.py
