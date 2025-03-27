@@ -59,6 +59,10 @@ runs:
         python-version-file: llm-pr-reviewer/pyproject.toml
         working-directory: llm-pr-reviewer
 
+    - name: install
+      shell: bash
+      run: poetry install
+
     # TODO: if there's need to configure any args for checkout
     - name: Checkout
       uses: actions/checkout@v4
