@@ -69,7 +69,7 @@ runs:
       uses: actions/checkout@v4
 
     - name: Run PR Review
-      run: poetry run python ${{ github.action_path }}/pr_reviewer.py
+      run: "$HOME/.local/bin/poetry" run python ${{ github.action_path }}/pr_reviewer.py
       shell: bash
       working-directory: llm-pr-reviewer
       env:
