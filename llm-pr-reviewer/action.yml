@@ -62,6 +62,7 @@ runs:
     - name: install
       shell: bash
       run: poetry install
+      working-directory: llm-pr-reviewer
 
     # TODO: if there's need to configure any args for checkout
     - name: Checkout
