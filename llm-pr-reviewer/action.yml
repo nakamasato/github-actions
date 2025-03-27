@@ -51,25 +51,17 @@ runs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        repository: nakamasato/github-actions
 
-    - name: Set up Python
-      uses: nakamasato/github-actions/setup-poetry@main
+    - uses: actions/setup-python@v4
       with:
-        python-version-file: llm-pr-reviewer/pyproject.toml
-        working-directory: llm-pr-reviewer
+        python-version: '3.13'
 
-    - name: install
+    - name: Install dependencies
+      run: pip install openai requests anthropic
       shell: bash
-      run: poetry install
-      working-directory: llm-pr-reviewer
-
-    # TODO: if there's need to configure any args for checkout
-    - name: Checkout
-      uses: actions/checkout@v4
 
     - name: Run PR Review
-      run: "$HOME/.local/bin/poetry" run python ${{ github.action_path }}/pr_reviewer.py
+      run: python ${{ github.action_path }}/pr_reviewer.py
       shell: bash
       working-directory: llm-pr-reviewer
       env:
