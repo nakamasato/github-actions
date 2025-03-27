@@ -47,19 +47,21 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout repository
+    - name: Checkout github actions repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Set up Python
-      uses: nakamasato/github-actions/setup-poetry@main
+    - uses: actions/setup-python@v4
       with:
-        python-version-file: llm-pr-reviewer/pyproject.toml
-        working-directory: llm-pr-reviewer
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: pip install openai requests anthropic
+      shell: bash
 
     - name: Run PR Review
-      run: poetry run python ${{ github.action_path }}/pr_reviewer.py
+      run: python ${{ github.action_path }}/pr_reviewer.py
       shell: bash
       working-directory: llm-pr-reviewer
       env:
