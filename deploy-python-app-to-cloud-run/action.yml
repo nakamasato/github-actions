@@ -7,7 +7,7 @@ inputs:
     required: false
     default: asia-northeast1
   verbosity:
-    description: Cloud Run deploy command verbosity (possible values: debug, info, warning, error, critical, none)
+    description: "Cloud Run deploy command verbosity (possible values: debug, info, warning, error, critical, none)"
     required: false
     default: warning
   service:
