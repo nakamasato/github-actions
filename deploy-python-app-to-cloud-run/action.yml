@@ -6,6 +6,10 @@ inputs:
     description: GCP region
     required: false
     default: asia-northeast1
+  verbosity:
+    description: Cloud Run deploy command verbosity (possible values: debug, info, warning, error, critical, none)
+    required: false
+    default: warning
   service:
     description: Cloud Run service name
     required: true
@@ -26,6 +30,14 @@ inputs:
   service_account:
     description: Service Account
     required: true
+  dockerfile:
+    description: "if you provide Dockerfile path, build with build-push-action. otherwise use buildpacks"
+    default: ''
+    required: false
+  context:
+    description: "docker context for build-push-action"
+    default: '.'
+    required: false
 
 outputs:
   url:
@@ -55,10 +67,45 @@ runs:
         username: oauth2accesstoken
         password: ${{ steps.auth.outputs.access_token }}
 
+    - name: Set up Docker Buildx
+      if: inputs.dockerfile != ''
+      uses: docker/setup-buildx-action@v3
+
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      if: inputs.dockerfile != ''
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build and push image sync-dinii-sales-data-from-gcs-to-lark
+      if: inputs.dockerfile != ''
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: true
+        tags: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}
+        platforms: linux/amd64
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+    - name: Move cache
+      if: inputs.dockerfile != ''
+      shell: bash
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    # Buildpack is slow https://github.com/buildpacks/pack
     - name: Install Pack CLI
+      if: inputs.dockerfile == ''
       uses: buildpacks/github-actions/setup-pack@v5.7.4
 
     - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
+      if: inputs.dockerfile == ''
       shell: bash
       run: |
         pack build "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
@@ -74,7 +121,8 @@ runs:
         gcloud run deploy ${{ inputs.service }} \
             --image "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
             --project "${{ inputs.project }}" \
-            --region "${{ inputs.region }}" # --verbosity debug
+            --region "${{ inputs.region }}" \
+            --verbosity "${{ inputs.verbosity }}"
 
     - name: Get CloudRun URL
       shell: bash
