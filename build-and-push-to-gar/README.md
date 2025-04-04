@@ -23,6 +23,9 @@
 name: deploy-cloudrun
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 env:
   PROJECT: <your project>
@@ -44,17 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python & Poetry
-        uses: nakamasato/github-actions/setup-poetry@1.6.0
-        with:
-          install-dependencies: false
-
-      - name: Set tag
-        id: set-tag
-        run: |
-          echo "IMAGE_TAG=${{ github.event_name == 'pull_request' && github.sha || github.ref_name }}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy CloudRun
+      - name: Build and Push
         uses: nakamasato/github-actions/build-and-push-to-gar@1.8.0
         with:
           dockerfile: Dockerfile
@@ -63,7 +56,7 @@ jobs:
           region: ${{ env.REGION }}
           repository: ${{ env.REPOSITORY }}
           image: ${{ env.IMAGE }}
-          image_tag: ${{ steps.set-tag.outputs.IMAGE_TAG }}
+          image_tag: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || format('{0}-{1}', github.ref_name, github.sha) }}
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 ```
