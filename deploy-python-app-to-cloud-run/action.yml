@@ -78,6 +78,8 @@ runs:
     - name: Set up Docker Buildx
       if: inputs.dockerfile != ''
       uses: docker/setup-buildx-action@v3
+      with:
+        driver: ${{ inputs.driver }}
 
     - name: Cache Docker layers
       uses: actions/cache@v4
@@ -112,8 +114,6 @@ runs:
     - name: Install Pack CLI
       if: inputs.dockerfile == ''
       uses: buildpacks/github-actions/setup-pack@v5.7.4
-      with:
-        driver: ${{ inputs.driver }}
 
     - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
       if: inputs.dockerfile == ''
