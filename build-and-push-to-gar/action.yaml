@@ -88,7 +88,7 @@ runs:
         restore-keys: |
           ${{ runner.os }}-buildx-${{ inputs.service }}-
 
-    - name: Build and push image sync-dinii-sales-data-from-gcs-to-lark
+    - name: Build and push image
       id: build-push-action
       uses: docker/build-push-action@v5
       with:
