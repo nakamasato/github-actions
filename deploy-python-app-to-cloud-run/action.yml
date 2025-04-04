@@ -38,6 +38,10 @@ inputs:
     description: "docker context for build-push-action"
     default: '.'
     required: false
+  build-args:
+    description: build-args for build-push-action
+    default: ''
+    required: false
 
 outputs:
   url:
