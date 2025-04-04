@@ -42,6 +42,10 @@ inputs:
     description: build-args for build-push-action
     default: ''
     required: false
+  driver:
+    description: driver for setup-buildx-action
+    default: docker-container
+    required: false
 
 outputs:
   url:
@@ -108,6 +112,8 @@ runs:
     - name: Install Pack CLI
       if: inputs.dockerfile == ''
       uses: buildpacks/github-actions/setup-pack@v5.7.4
+      with:
+        driver: ${{ inputs.driver }}
 
     - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
       if: inputs.dockerfile == ''
