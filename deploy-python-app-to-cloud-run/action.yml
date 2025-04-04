@@ -86,9 +86,9 @@ runs:
       if: inputs.dockerfile != ''
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        key: ${{ runner.os }}-buildx-${{ inputs.service }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-buildx-
+          ${{ runner.os }}-buildx-${{ inputs.service }}-
 
     - name: Build and push image sync-dinii-sales-data-from-gcs-to-lark
       if: inputs.dockerfile != ''
@@ -109,6 +109,7 @@ runs:
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+        ls /tmp/.buildx-cache
 
     # Buildpack is slow https://github.com/buildpacks/pack
     - name: Install Pack CLI
