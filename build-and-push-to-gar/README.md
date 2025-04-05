@@ -1,5 +1,7 @@
 # Build and push to GAR (Google Artifact Registry)
 
+Build a docker image and push it to Google Artifact Registry.
+
 ## Inputs
 
 - dockerfile
