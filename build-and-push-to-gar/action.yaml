@@ -50,7 +50,8 @@ outputs:
   metadata:
     description: image metadata
     value: ${{ steps.build-push-action.outputs.metadata }}
-    
+  full_image_name:
+    value: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}
 
 name: Build and push to Google Artifact Registry
 description: Build and push to Google Artifact Registry
