@@ -1,0 +1,20 @@
+name: Set image tag
+description: "Set image tag based on GitHub event type. pr: 'pr-<pr_number>', push: '<branch-name>-<github short sha>', release: '<tag>'"
+outputs:
+  tag:
+    description: tag name
+    value: ${{ steps.set-tag.outputs.IMAGE_TAG }}
+runs:
+  using: composite
+  steps:
+    - name: Set tag
+      id: set-tag
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" = 'pull_request' ]]; then
+          echo "IMAGE_TAG=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+        elif [ "${{ github.event_name }}" == "push" ]; then
+          echo "IMAGE_TAG=${{ github.ref_name }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        else
+          echo "IMAGE_TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+        fi
