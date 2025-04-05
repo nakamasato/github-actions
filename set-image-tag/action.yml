@@ -13,7 +13,9 @@ runs:
       run: |
         if [[ "${{ github.event_name }}" = 'pull_request' ]]; then
           echo "IMAGE_TAG=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
-        elif [ "${{ github.event_name }}" == "push" ]; then
+        elif [ "${{ github.event_name }}" == 'release' ]; then
+          echo "IMAGE_TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+        elif [ "${{ github.event_name }}" == 'push' ]; then
           echo "IMAGE_TAG=${{ github.ref_name }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
         else
           echo "IMAGE_TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
