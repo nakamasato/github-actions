@@ -37,7 +37,7 @@ Format your response as JSON:
   {
     "start_line": <number>,
     "end_line": <number>,
-    "explanation": "<clear explanation with rationale>",
+    "explanation": "<precise explanation with clear reasoning>",
     "side": <"LEFT" or "RIGHT" In a split diff view, the side of the diff that the pull request's changes appear on. Can be LEFT for deletions that appear in red. Use RIGHT for additions that appear in green or unchanged lines that appear in white and are shown for context.>,
     "suggestion": "<suggested code (optional)>",
     "importance": <float between 0.0 and 1.0 indicating how important this suggestion is>,
@@ -47,77 +47,113 @@ Format your response as JSON:
   ...
 ]
 
-Provide a maximum of 5 high-quality comments, ordered by importance. Focus on substantive improvements rather than minor style issues unless specifically requested.
+Provide a maximum of 5 high-quality comments, ordered by importance. Focus ONLY on substantive improvements that meaningfully impact the code quality.
 
-For the importance field, use these guidelines:
-- 0.9-1.0: Critical issues (security vulnerabilities, serious bugs, data integrity problems)
-- 0.7-0.9: Important issues (significant performance issues, potential bugs, maintainability concerns)
-- 0.5-0.7: Moderate issues (code quality, design improvements)
-- 0.0-0.5: Minor issues (style, readability, documentation)
+For the importance field, use these strict guidelines:
+- 0.9-1.0: Critical issues ONLY (security vulnerabilities, clear bugs that will cause runtime errors, data integrity problems)
+- 0.7-0.9: Important issues ONLY (proven performance bottlenecks, edge case bugs, serious maintainability concerns)
+- 0.5-0.7: Moderate issues (significant code quality issues, architectural improvements)
+- 0.0-0.5: Minor issues (prefer not to include these unless specifically requested)
 
-Include the confidence level for each suggestion to indicate your certainty.
+For the confidence field:
+- Only include suggestions with confidence >= 0.7
+- For any code replacing suggestions, ensure confidence is >= 0.8
 
 Ensure explanations are:
-1. Precise and specific to the code
-2. Include the reasoning behind your suggestion
-3. Educational - explain the principle behind the improvement
-4. Actionable - clear what needs to be changed
+1. Extremely precise and specific to the code context
+2. Include concrete reasoning with technical justification
+3. Educational - explain the specific principle behind the improvement
+4. Immediately actionable - provide exact guidance on implementation
 
 IMPORTANT: About the "suggestion" field - this will be used with GitHub Pull Request's suggestion feature.
 GitHub PR suggestions must contain ONLY the exact code that should replace the lines specified in start_line and end_line.
 DO NOT include any explanatory text, comments, or descriptions in the suggestion field.
-If you're not sure about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
+If you're not 100% confident about the exact code to suggest, leave the suggestion field empty and only provide an explanation.
 
-CRITICAL: Maintain the EXACT INDENTATION from the original code in your suggestions. The indentation must match perfectly.
-Do not use placeholder values like <commit_sha>, <version>, etc. in suggestions - they cannot be directly applied.
+CRITICAL: 
+- Maintain the EXACT INDENTATION from the original code in your suggestions
+- Ensure suggestions are complete, syntactically correct, and directly applicable
+- DO NOT use placeholder values in suggestions (like <commit_sha>, <version>)
+- VERIFY your suggestions would compile/run before including them
 
 IMPORTANT: About the "side" field - this will be used with GitHub Pull Request's suggestion feature.
 Use "LEFT" for comments on deletions (with minus signs) that appear in red.
 Use "RIGHT" for comments on additions (with plus signs) that appear in green or unchanged lines that appear in white and are shown for context.
 
-IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff (the ones marked with + or - at the beginning).
+IMPORTANT: The start_line and end_line fields MUST ONLY reference lines that were actually changed in the diff.
 """
 
 CODE_TYPE_INSTRUCTION_PROMPT = """
-Focus on providing high-value feedback in these areas:
+Focus EXCLUSIVELY on providing high-value technical feedback in these priority areas:
 
-1. Code Quality and Best Practices:
-   - SOLID principles violations
-   - Design pattern application or misuse
-   - Error handling and edge cases
-   - Code duplication and reuse opportunities
-   - Variable/function naming clarity
+1. Critical Bugs and Security Issues:
+   - Definite runtime errors and exceptions
+   - Race conditions and concurrency issues
+   - Security vulnerabilities (injection, CSRF, etc.)
+   - Data integrity and validation failures
+   - Memory/resource leaks and management issues
 
-2. Performance Issues:
-   - Algorithmic inefficiencies (time/space complexity)
-   - Resource management (memory, connections, file handles)
-   - Unnecessary computations or data structures
-   - Database query optimizations
+2. Architecture and Design:
+   - SOLID principle violations with specific negative impacts
+   - Design pattern misapplications causing maintainability issues
+   - Interface/API design problems affecting consumers
+   - Tight coupling creating testing/maintenance problems
+   - Component responsibilities and boundaries issues
 
-3. Security Concerns:
-   - Input validation vulnerabilities
-   - Authentication/authorization flaws
-   - Data exposure risks
-   - Dependency security issues
-   - Secure coding practices
+3. Performance Optimization:
+   - Proven algorithmic inefficiencies (with complexity analysis)
+   - Redundant operations or unnecessary computations
+   - Inefficient resource usage or management
+   - Specific database query or data access optimizations
+   - Memory footprint or CPU usage concerns
 
-4. Maintainability:
-   - Test coverage adequacy
-   - Documentation completeness
-   - Code organization and modularity
-   - Future compatibility considerations
+4. Code Robustness:
+   - Error handling and edge case omissions
+   - Inconsistent error propagation
+   - Resilience and fault tolerance issues
+   - Input validation gaps
+   - Testability limitations
 
-Prioritize actionable feedback that will meaningfully improve the codebase.
-Limit feedback on trivial stylistic issues unless they significantly impact readability.
+Ensure all feedback is:
+- Precise and technically justified (not opinion-based)
+- Directly applicable with clear implementation guidance
+- Supported by specific best practices or programming principles
+- Focused on issues that would cause actual operational problems
+
+DO NOT provide feedback on:
+- Stylistic preferences without functional impact
+- Minor naming inconsistencies (unless causing genuine confusion)
+- Code formatting or indentation
+- Documentation unless critically missing for public APIs
+- Trivial optimization suggestions without proven impact
+
+Prioritize depth over breadth - provide thorough analysis of significant issues rather than superficial comments on minor ones.
 """
 
 GITHUB_ACTIONS_INSTRUCTION_PROMPT = """
-For GitHub Actions workflows, focus on:
-- Security best practices (e.g., using SHA pinning for actions)
-- Performance optimizations (caching, artifact handling)
-- Potential race conditions or workflow design issues
-- Unnecessary steps or job dependencies
-- GitHub Actions specific suggestions
+For GitHub Actions workflows, focus ONLY on critical issues:
+
+Security:
+- Missing SHA pinning for third-party actions (HIGH PRIORITY)
+- Secrets or credentials exposure
+- Insecure command injection possibilities
+- Code execution vulnerabilities
+- Improper permissions usage
+
+Performance and Efficiency:
+- Missing caching for dependencies, build artifacts, or runners
+- Redundant or duplicated steps that significantly increase workflow time
+- Inefficient job organization causing unnecessary sequential execution
+- Resource-intensive operations without optimization
+
+Reliability:
+- Race conditions between jobs or steps
+- Flaky conditions or missing fail-safes
+- Improper error handling for critical operations
+- Missing timeouts for external dependencies
+- Incorrect environment configuration
+
+Only suggest changes that would have significant impact on security, reliability, or meaningful performance improvement (>20% speedup), with concrete implementation guidance.
 """
 
 
@@ -238,13 +274,16 @@ def generate_review_comments(
     file_content: str,
     filename: str,
     referenced_files: Dict[str, str],
-    temperature: float = 0.2,
-    max_tokens: int = 2000,
+    temperature: float = 0.1,  # Lower temperature for more precise results
+    max_tokens: int = 3000,  # Increased token limit for more thorough analysis
 ) -> List[Dict]:
-    """Use OpenAI to analyze code and suggest improvements."""
-    # Build prompt with context
+    """Use LLM to analyze code and suggest high-precision improvements."""
+    # Build prompt with precise context
     prompt = f"""
-Analyze the following code from {filename} and suggest specific improvements:
+You are performing a technical code review on a Pull Request. 
+Focus only on significant, high-value improvements for the code in file: {filename}
+
+Analyze these specific changes carefully:
 """
     for i, patch in enumerate(patches):
         prompt += f"""
@@ -255,57 +294,200 @@ Patch {i + 1} (old_start_line: {patch["old_start_line"]}, old_end_line: {patch["
 """
 
     prompt += f"""
-Entire content of the file:
+Complete file context:
 ```
 {file_content}
 ```
 """
 
-    # Add referenced files as context
+    # Add referenced files as context with better organization
     if referenced_files:
-        prompt += "\nHere are referenced files that might provide context:\n\n"
+        prompt += "\nRELATED FILES FOR CONTEXT:\n"
         for ref_name, ref_content in referenced_files.items():
-            # Add a preview of the referenced file (first 20 lines)
-            ref_preview = "\n".join(ref_content.split("\n")[:20])
-            prompt += f"File {ref_name}:\n```\n{ref_preview}\n...\n```\n\n"
+            # Extract more relevant context from referenced files
+            relevant_lines = get_relevant_context(ref_content, 30)
+            prompt += (
+                f"File {ref_name} (relevant sections):\n```\n{relevant_lines}\n```\n\n"
+            )
 
-    # Use specific prompt for GitHub Workflows
+    # Add language/framework specific instructions
+    file_ext = os.path.splitext(filename)[1].lower()
+    prompt += get_language_specific_instructions(file_ext)
+
+    # Use specific prompts based on file type
     if filename.startswith(".github/workflows/") and (
         filename.endswith(".yml") or filename.endswith(".yaml")
     ):
         prompt += GITHUB_ACTIONS_INSTRUCTION_PROMPT
     else:
         prompt += CODE_TYPE_INSTRUCTION_PROMPT
+
+    # Add final output instructions
     prompt += CODE_SUGGESTION_INSTRUCTION_PROMPT
 
     try:
-        # Generate review using the LLM provider
+        # Generate review using the LLM provider with adjusted parameters
         content = llm_provider.generate_review(prompt, temperature, max_tokens)
-        # Handle case where the response might contain markdown code blocks
+
+        # Handle various JSON formatting possibilities in the response
         json_match = re.search(r"```(?:json)?\s*(\[[\s\S]+?\])\s*```", content)
         if json_match:
             content = json_match.group(1)
+        else:
+            # Try to find any JSON array in the response
+            json_match = re.search(r"\[\s*\{[\s\S]+\}\s*\]", content)
+            if json_match:
+                content = json_match.group(0)
 
-        suggestions = json.loads(content)
+        # Parse and validate suggestions
+        try:
+            suggestions = json.loads(content)
+        except json.JSONDecodeError:
+            print(
+                f"Failed to parse JSON from LLM response. Raw response: {content[:500]}..."
+            )
+            return []
 
-        # Filter out low confidence suggestions
-        suggestions = [s for s in suggestions if s.get("confidence", 0.5) > 0.4]
+        # Apply stricter confidence and validation filters
+        suggestions = [
+            s
+            for s in suggestions
+            if (
+                s.get("confidence", 0) >= 0.7
+                and s.get("importance", 0) >= 0.5
+                and is_valid_suggestion(s)
+            )
+        ]
 
         # Sort by importance
         suggestions.sort(key=lambda x: x.get("importance", 0), reverse=True)
 
-        for suggestion in suggestions:
-            suggestion["debug_info"] = {
-                "prompt": prompt,
-                "patches": patches,
-                "referenced_files": referenced_files,
-                "filename": filename,
-                "file_content": file_content,
-            }
+        # Limit to highest importance suggestions
+        suggestions = suggestions[:5]
+
+        # Add debug info if needed
+        if DEBUG:
+            for suggestion in suggestions:
+                suggestion["debug_info"] = {
+                    "patches": patches,
+                    "referenced_files": list(referenced_files.keys()),
+                    "filename": filename,
+                }
         return suggestions
     except Exception as e:
         print(f"Error analyzing code: {e}")
         return []
+
+
+def get_relevant_context(content: str, max_lines: int = 30) -> str:
+    """Extract the most relevant lines from file content for context."""
+    lines = content.split("\n")
+
+    # If the file is small enough, return it all
+    if len(lines) <= max_lines:
+        return content
+
+    # Extract important parts like imports, class/function definitions
+    important_lines = []
+    import_pattern = re.compile(r"^\s*(import|from|require|using|include)\s")
+    definition_pattern = re.compile(r"^\s*(class|def|function|interface|struct|enum)\s")
+
+    for i, line in enumerate(lines):
+        if (
+            import_pattern.search(line)
+            or definition_pattern.search(line)
+            or (line.strip() and i < 15)
+        ):  # Include first 15 non-empty lines for context
+            important_lines.append((i, line))
+
+    # If we found enough important lines, use those
+    if len(important_lines) >= max_lines // 2:
+        selected_indices = [idx for idx, _ in important_lines[:max_lines]]
+        selected_indices.sort()
+        return "\n".join(lines[idx] for idx in selected_indices)
+
+    # Otherwise, return first and last sections with a gap in the middle
+    first_section = lines[: max_lines // 2]
+    last_section = lines[-(max_lines // 2) :]
+    return "\n".join(first_section) + "\n...\n" + "\n".join(last_section)
+
+
+def get_language_specific_instructions(file_ext: str) -> str:
+    """Return language-specific review instructions based on file extension."""
+    instructions = {
+        ".py": """
+For Python code, focus on:
+- Type hint consistency and correctness
+- Proper exception handling
+- Use of context managers for resources
+- Efficient use of data structures
+- Proper module organization
+""",
+        ".js": """
+For JavaScript code, focus on:
+- Asynchronous code correctness (Promise handling)
+- Memory leaks in closures or event listeners
+- Browser compatibility issues
+- Performance bottlenecks in DOM operations
+""",
+        ".ts": """
+For TypeScript code, focus on:
+- Type safety and proper interface usage
+- Handling of nullable types
+- Proper typing of async functions
+- Avoiding any type unless necessary
+""",
+        ".go": """
+For Go code, focus on:
+- Proper error handling
+- Concurrency issues
+- Memory management
+- Interface design
+""",
+        ".java": """
+For Java code, focus on:
+- Proper resource management
+- Exception handling best practices
+- Concurrency issues
+- Effective use of Java's type system
+""",
+    }
+
+    return instructions.get(file_ext, "")
+
+
+def is_valid_suggestion(suggestion: Dict) -> bool:
+    """Validate a suggestion for quality and applicability."""
+    # Check required fields
+    for field in [
+        "start_line",
+        "end_line",
+        "explanation",
+        "side",
+        "importance",
+        "confidence",
+    ]:
+        if field not in suggestion:
+            return False
+
+    # Verify suggestion quality
+    explanation = suggestion.get("explanation", "")
+    if len(explanation) < 20 or not explanation.strip():
+        return False
+
+    # Check if suggestion provides code and has high confidence
+    if "suggestion" in suggestion and suggestion["suggestion"].strip():
+        if suggestion.get("confidence", 0) < 0.8:
+            # Remove low-confidence code suggestions
+            suggestion.pop("suggestion")
+
+    # Check for explanation quality indicators
+    has_technical_justification = any(
+        term in explanation.lower()
+        for term in ["because", "this causes", "leads to", "results in", "improves"]
+    )
+
+    return has_technical_justification
 
 
 def get_pr_diff_info(pr_number: str) -> Dict[str, Any]:
