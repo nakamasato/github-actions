@@ -2,6 +2,12 @@
 
 A GitHub Action that automatically generates Pull Request titles and descriptions based on code changes.
 
+## Motivation
+
+[pr-agent](https://github.com/qodo-ai/pr-agent) only provides [marker-template](https://qodo-merge-docs.qodo.ai/tools/describe/?h=marker#markers-template)([pr-agent#273](https://github.com/qodo-ai/pr-agent/pull/273)) and doesn't support [pull request template](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository) ([pr-agent#213](https://github.com/qodo-ai/pr-agent/issues/213)).
+
+With this GitHub Actions, you can configure how to generate pr title and description more flexibly.
+
 ## Features
 
 - Analyzes changed files in a PR to understand the code changes
