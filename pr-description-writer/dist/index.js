@@ -30,7 +30,7 @@ Please provide only a numeric similarity score between 0.0 and 1.0 in your respo
 
     try {
         let similarityScore;
-        
+
         if (llmProvider === 'openai') {
             similarityScore = await callOpenAIForSimilarity(prompt, apiKey, model);
         } else if (llmProvider === 'anthropic') {
@@ -38,7 +38,7 @@ Please provide only a numeric similarity score between 0.0 and 1.0 in your respo
         } else {
             throw new Error(`Unsupported LLM provider for similarity calculation: ${llmProvider}`);
         }
-        
+
         // Convert to number and ensure it's between 0 and 1
         const score = Math.max(0, Math.min(1, parseFloat(similarityScore) || 0));
         core.info(`Similarity score between current and new PR content: ${score}`);
@@ -156,7 +156,7 @@ async function run() {
             repo,
             pull_number: prNumber
         });
-        
+
         const currentTitle = currentPR.title;
         const currentBody = currentPR.body || '';
         core.info(`Current PR title: "${currentTitle}"`);
@@ -286,26 +286,26 @@ async function run() {
 
             const newTitle = result.title;
             const newBody = result.description;
-            
+
             // Always log the newly generated content
             core.info(`Generated PR title: "${newTitle}"`);
             core.info(`Generated PR description length: ${newBody.length} characters`);
 
             // Calculate similarity between current and new content
             const similarityScore = await calculateLLMSimilarity(
-                currentTitle, 
-                currentBody, 
-                newTitle, 
-                newBody, 
-                llmProvider, 
-                llmProvider === 'openai' ? openaiApiKey : anthropicApiKey, 
+                currentTitle,
+                currentBody,
+                newTitle,
+                newBody,
+                llmProvider,
+                llmProvider === 'openai' ? openaiApiKey : anthropicApiKey,
                 llmProvider === 'openai' ? openaiModel : anthropicModel
             );
-            
+
             // If similarity is below threshold, update the PR
             if (similarityScore < similarityThreshold) {
                 core.info(`Similarity score ${similarityScore} is below threshold ${similarityThreshold}. Updating PR...`);
-                
+
                 // Update the PR with the generated title and description
                 await octokit.rest.pulls.update({
                     owner,
@@ -314,7 +314,7 @@ async function run() {
                     title: newTitle,
                     body: newBody
                 });
-                
+
                 core.info('Successfully updated PR title and description');
             } else {
                 core.info(`Similarity score ${similarityScore} is above threshold ${similarityThreshold}. Not updating PR.`);
@@ -467,64 +467,6 @@ async function callAnthropic(prompt, apiKey, model) {
             description: `The PR description could not be generated due to an API error: ${error.message}`
         };
     }
-}
-
-function parseGeneratedContent(content) {
-    // If we already have a parsed JSON object with title and description/body
-    if (content && typeof content === 'object') {
-        if (content.title) {
-            // If we have a direct JSON response
-            return {
-                title: content.title,
-                body: content.description || content.body || ''
-            };
-        } else if (content.rawContent) {
-            // Fall back to parsing text if JSON parsing failed earlier
-            const textContent = content.rawContent;
-            let title = '';
-            let body = '';
-
-            // Extract title
-            const titleMatch = textContent.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
-            if (titleMatch) {
-                title = titleMatch[1].trim();
-            }
-
-            // Extract description
-            const bodyMatch = textContent.match(/DESCRIPTION:\s*([\s\S]*?)$/);
-            if (bodyMatch) {
-                body = bodyMatch[1].trim();
-            }
-
-            return { title, body };
-        }
-    }
-
-    // If we have a string, try to parse it as text
-    if (typeof content === 'string') {
-        let title = '';
-        let body = '';
-
-        // Extract title
-        const titleMatch = content.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
-        if (titleMatch) {
-            title = titleMatch[1].trim();
-        }
-
-        // Extract description
-        const bodyMatch = content.match(/DESCRIPTION:\s*([\s\S]*?)$/);
-        if (bodyMatch) {
-            body = bodyMatch[1].trim();
-        }
-
-        return { title, body };
-    }
-
-    // Default fallback
-    return {
-        title: 'Automated PR Description',
-        body: 'This PR description was automatically generated, but the format could not be parsed correctly.'
-    };
 }
 
 run().catch(error => {
