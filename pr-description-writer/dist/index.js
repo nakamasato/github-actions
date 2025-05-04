@@ -41250,6 +41250,16 @@ const fs = (__nccwpck_require__(9896).promises);
 const path = __nccwpck_require__(6928);
 const axios = __nccwpck_require__(7269);
 
+// Helper function to check if a file exists
+async function fileExists(filePath) {
+    try {
+        await fs.access(filePath);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function run() {
     try {
         // Get inputs
@@ -41325,19 +41335,30 @@ async function run() {
         }
 
         // Read PR template if available
-        let prTemplate;
-        try {
-            prTemplate = await fs.readFile(prTemplatePath, 'utf8');
-        } catch (error) {
-            core.warning(`Could not read PR template: ${error.message}`);
-            prTemplate = '';
+        let prTemplate = '';
+        if (prTemplatePath) {
+            try {
+                const templateExists = await fileExists(prTemplatePath);
+                if (templateExists) {
+                    prTemplate = await fs.readFile(prTemplatePath, 'utf8');
+                } else {
+                    core.info(`PR template file not found at ${prTemplatePath}. Continuing without template.`);
+                }
+            } catch (error) {
+                core.warning(`Could not read PR template: ${error.message}`);
+            }
         }
 
         // Read custom prompt if available
         let customPrompt = '';
         if (promptPath) {
             try {
-                customPrompt = await fs.readFile(promptPath, 'utf8');
+                const promptExists = await fileExists(promptPath);
+                if (promptExists) {
+                    customPrompt = await fs.readFile(promptPath, 'utf8');
+                } else {
+                    core.info(`Custom prompt file not found at ${promptPath}. Continuing without custom prompt.`);
+                }
             } catch (error) {
                 core.warning(`Could not read custom prompt: ${error.message}`);
             }
