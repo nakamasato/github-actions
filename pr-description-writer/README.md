@@ -31,12 +31,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate PR Description
-        uses: nakamasato/pr-description-writer@v1.10.0
+        uses: nakamasato/github-actions/pr-description-writer@v1.10.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          llm_provider: 'anthropic'  # or 'openai'
+          # anthropic config
+          llm_provider: anthropic
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          anthropic_model: 'claude-3-opus-20240229'
+          anthropic_model: claude-3-opus-20240229
+          # openai config
+          # llm_provider: openai
+          # openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          # openai_model: gpt-4o-mini
           # Optional parameters
           # prs: 'https://github.com/org/repo/pull/1,https://github.com/org/repo/pull/2'
           # pull_request_template_path: '.github/custom_template.md'
