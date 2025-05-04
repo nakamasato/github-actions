@@ -35,6 +35,10 @@ inputs:
     description: "Anthropic model to use"
     required: false
     default: "claude-3-opus-20240229"
+  similarity_threshold:
+    description: "Threshold to determine if the new generated content is significantly different (0.0-1.0, where higher means more different)"
+    required: false
+    default: "0.5"
 
 runs:
   using: "node20"
