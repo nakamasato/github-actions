@@ -6,6 +6,8 @@ on:
 
 jobs:
   generate-pr-description:
+    permissions:
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
