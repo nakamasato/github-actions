@@ -20,7 +20,9 @@ name: Generate PR Description
 on:
   pull_request:
     types: [opened, synchronize]
-    branches: [ main, master ]
+
+permissions:
+  pull-requests: write
 
 jobs:
   generate-description:
@@ -29,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Generate PR Description
-        uses: yourusername/pr-description-writer@v1
+        uses: nakamasato/pr-description-writer@v1.10.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           llm_provider: 'anthropic'  # or 'openai'
@@ -67,34 +69,46 @@ Please follow these guidelines when generating the PR description:
 4. Use bullet points for listing changes
 ```
 
+### Example Custom Prompt (pr_prompt.txt)
+
+Here's an example of a custom prompt file in Japanese for conventional commit style PRs:
+
+```
+以下の指示に従ってPull Requestのタイトルと説明を生成してください：
+
+1. title:
+    - format は conventional commit `<type>[optional scope]: <description>`
+        - type: fix, feat, build, chore, ci, docs, style, refactor, perf, test
+    - 簡潔で明確なタイトルを付けてください（50文字以内が理想）
+    - 言語は英語
+    - 最初は小文字
+    - タイプの例: fix, feat, refactor, docs, test, chore など
+    - plain text and no style
+
+2. description:
+    - 基本はWhatとWhyのセクション (## What と ## Why)を簡潔にわかりやすく
+    - WhatもWhyもともにリスト形式
+    - What
+        - 変更点は箇条書き
+        - リストの数は多くなりすぎないように、2,3個がベスト. Max5個
+        - リストの数が多い場合は、リストの階層を使ってわかりやすくする (マックス階層の深さ2)
+    - 破壊的変更がある場合は目立つように記載してください (ある場合のみ ## Breaking Changes を追加)
+    - 関連するチケットやIssueがある場合はリンクしてください (ある場合のみ ## Related Issuesを追加)
+    - 絵文字は適度に使用してOKです（特に見出しの前など）
+```
+
 ## Example PR Template
 
 This action works best when you have a structured PR template:
 
 ```markdown
-## What does this PR do?
+## What
 
 <!-- Brief description of what this PR does -->
 
-## Why was this change made?
+## Why
 
 <!-- Explain the context and motivation for this change -->
-
-## What changes were made?
-
-<!-- Technical details about the implementation -->
-
-## Testing
-
-<!-- How was this change tested? -->
-
-## Screenshots (if applicable)
-
-<!-- Add screenshots here -->
-
-## Related Issues
-
-<!-- Link to related issues here -->
 ```
 
 ## Building the Action
@@ -102,6 +116,12 @@ This action works best when you have a structured PR template:
 ```bash
 npm install
 npm run build
+```
+
+## Test
+
+```bash
+npm test
 ```
 
 ## License
