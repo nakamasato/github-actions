@@ -1,0 +1,45 @@
+name: "PR Description Writer"
+description: "Automatically generate PR title and description based on code changes"
+author: "Your Name"
+
+inputs:
+  prs:
+    description: "List of links to past PRs to use as examples"
+    required: false
+    default: ""
+  pull_request_template_path:
+    description: "Path to the PR template file"
+    required: false
+    default: ".github/pull_request_template.md"
+  prompt_path:
+    description: "Path to a custom prompt file for how to fill the PR template"
+    required: false
+    default: ""
+  github_token:
+    description: "GitHub token for API access"
+    required: true
+  llm_provider:
+    description: "LLM provider to use (openai or anthropic)"
+    required: true
+  openai_api_key:
+    description: "OpenAI API key"
+    required: false
+  openai_model:
+    description: "OpenAI model to use"
+    required: false
+    default: "gpt-4-turbo"
+  anthropic_api_key:
+    description: "Anthropic API key"
+    required: false
+  anthropic_model:
+    description: "Anthropic model to use"
+    required: false
+    default: "claude-3-opus-20240229"
+
+runs:
+  using: "node20"
+  main: "dist/index.js"
+
+branding:
+  icon: "edit"
+  color: "blue"

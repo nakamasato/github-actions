@@ -1,0 +1,26 @@
+name: pr-description-writer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  generate-pr-description:
+    runs-on: ubuntu-latest
+    # Skip on draft PRs
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate PR Description
+        uses: nakamasato/github-actions/pr-description-writer@add-pr-description-writer
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 使用するLLMプロバイダーを選択
+          llm_provider: openai
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          prs: 'https://github.com/nakamasato/github-actions/pull/13,https://github.com/nakamasato/github-actions/pull/12'
+          prompt_path: 'pr-description-writer/pr_prompt.txt'
