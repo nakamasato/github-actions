@@ -7,8 +7,6 @@ on:
 jobs:
   generate-pr-description:
     runs-on: ubuntu-latest
-    # Skip on draft PRs
-    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
