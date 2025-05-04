@@ -149,29 +149,35 @@ async function run() {
         // Build prompt for the LLM
         const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
 
-        // Call the appropriate LLM API
-        let generatedContent;
-        if (llmProvider === 'openai') {
-            generatedContent = await callOpenAI(prompt, openaiApiKey, openaiModel);
-        } else if (llmProvider === 'anthropic') {
-            generatedContent = await callAnthropic(prompt, anthropicApiKey, anthropicModel);
-        } else {
-            throw new Error(`Unsupported LLM provider: ${llmProvider}`);
-        }
-
-        // Parse the generated content to extract title and description
-        const { title, body } = parseGeneratedContent(generatedContent);
-
         // Update the PR with the generated title and description
-        await octokit.rest.pulls.update({
-            owner,
-            repo,
-            pull_number: prNumber,
-            title,
-            body
-        });
+        let result;
+        try {
+            if (llmProvider === 'openai') {
+                result = await callOpenAI(prompt, openaiApiKey, openaiModel);
+            } else if (llmProvider === 'anthropic') {
+                result = await callAnthropic(prompt, anthropicApiKey, anthropicModel);
+            } else {
+                throw new Error(`Unsupported LLM provider: ${llmProvider}`);
+            }
 
-        core.info('Successfully updated PR title and description');
+            // No need to parse further, the API functions now always return
+            // an object with title and description properties
+            const title = result.title;
+            const body = result.description;
+
+            // Update the PR with the generated title and description
+            await octokit.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: prNumber,
+                title,
+                body
+            });
+
+            core.info('Successfully updated PR title and description');
+        } catch (error) {
+            core.setFailed(`Failed to generate or update PR description: ${error.message}`);
+        }
 
     } catch (error) {
         core.setFailed(`Action failed: ${error.message}`);
@@ -230,7 +236,11 @@ async function callOpenAI(prompt, apiKey, model) {
             'https://api.openai.com/v1/chat/completions',
             {
                 model: model,
-                messages: [{ role: 'user', content: prompt }],
+                messages: [{
+                    role: 'user',
+                    content: prompt + "\n\nReturn your response as a JSON object with 'title' and 'description' fields. Do not include any other text."
+                }],
+                response_format: { type: "json_object" },
                 temperature: 0.7,
                 max_tokens: 2000,
             },
@@ -242,9 +252,27 @@ async function callOpenAI(prompt, apiKey, model) {
             }
         );
 
-        return response.data.choices[0].message.content;
+        // Parse the JSON response
+        const content = response.data.choices[0].message.content;
+        try {
+            const parsed = JSON.parse(content);
+            return {
+                title: parsed.title || 'Automated PR Description',
+                description: parsed.description || parsed.body || ''
+            };
+        } catch (error) {
+            core.warning(`Failed to parse OpenAI response as JSON: ${error.message}`);
+            return {
+                title: 'Automated PR Description',
+                description: 'The PR description could not be generated correctly. The API did not return valid JSON.'
+            };
+        }
     } catch (error) {
-        throw new Error(`OpenAI API error: ${error.message}`);
+        core.error(`OpenAI API error: ${error.message}`);
+        return {
+            title: 'Automated PR Description',
+            description: `The PR description could not be generated due to an API error: ${error.message}`
+        };
     }
 }
 
@@ -254,8 +282,12 @@ async function callAnthropic(prompt, apiKey, model) {
             'https://api.anthropic.com/v1/messages',
             {
                 model: model,
-                messages: [{ role: 'user', content: prompt }],
+                messages: [{
+                    role: 'user',
+                    content: prompt + "\n\nReturn your response as a JSON object with 'title' and 'description' fields. The JSON object should be valid and parseable. Do not include any other text outside of the JSON object."
+                }],
                 max_tokens: 2000,
+                system: "Return your response as a valid, parseable JSON object with 'title' and 'description' fields. Include only the JSON object in your response, with no additional explanations or text."
             },
             {
                 headers: {
@@ -266,32 +298,99 @@ async function callAnthropic(prompt, apiKey, model) {
             }
         );
 
-        return response.data.content[0].text;
+        const content = response.data.content[0].text;
+
+        // Try to extract JSON from the response
+        let jsonMatch = content.match(/\{[\s\S]*\}/);
+        try {
+            const jsonStr = jsonMatch ? jsonMatch[0] : content;
+            const parsed = JSON.parse(jsonStr);
+            return {
+                title: parsed.title || 'Automated PR Description',
+                description: parsed.description || parsed.body || ''
+            };
+        } catch (error) {
+            core.warning(`Failed to parse Anthropic response as JSON: ${error.message}`);
+            return {
+                title: 'Automated PR Description',
+                description: 'The PR description could not be generated correctly. The API did not return valid JSON.'
+            };
+        }
     } catch (error) {
-        throw new Error(`Anthropic API error: ${error.message}`);
+        core.error(`Anthropic API error: ${error.message}`);
+        return {
+            title: 'Automated PR Description',
+            description: `The PR description could not be generated due to an API error: ${error.message}`
+        };
     }
 }
 
 function parseGeneratedContent(content) {
-    // Default values
-    let title = '';
-    let body = '';
+    // If we already have a parsed JSON object with title and description/body
+    if (content && typeof content === 'object') {
+        if (content.title) {
+            // If we have a direct JSON response
+            return {
+                title: content.title,
+                body: content.description || content.body || ''
+            };
+        } else if (content.rawContent) {
+            // Fall back to parsing text if JSON parsing failed earlier
+            const textContent = content.rawContent;
+            let title = '';
+            let body = '';
 
-    // Extract title
-    const titleMatch = content.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
-    if (titleMatch) {
-        title = titleMatch[1].trim();
+            // Extract title
+            const titleMatch = textContent.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
+            if (titleMatch) {
+                title = titleMatch[1].trim();
+            }
+
+            // Extract description
+            const bodyMatch = textContent.match(/DESCRIPTION:\s*([\s\S]*?)$/);
+            if (bodyMatch) {
+                body = bodyMatch[1].trim();
+            }
+
+            return { title, body };
+        }
     }
 
-    // Extract description
-    const bodyMatch = content.match(/DESCRIPTION:\s*([\s\S]*?)$/);
-    if (bodyMatch) {
-        body = bodyMatch[1].trim();
+    // If we have a string, try to parse it as text
+    if (typeof content === 'string') {
+        let title = '';
+        let body = '';
+
+        // Extract title
+        const titleMatch = content.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
+        if (titleMatch) {
+            title = titleMatch[1].trim();
+        }
+
+        // Extract description
+        const bodyMatch = content.match(/DESCRIPTION:\s*([\s\S]*?)$/);
+        if (bodyMatch) {
+            body = bodyMatch[1].trim();
+        }
+
+        return { title, body };
     }
 
-    return { title, body };
+    // Default fallback
+    return {
+        title: 'Automated PR Description',
+        body: 'This PR description was automatically generated, but the format could not be parsed correctly.'
+    };
 }
 
 run().catch(error => {
     core.setFailed(`Unhandled error: ${error.message}`);
 });
+
+// Export functions for testing
+if (process.env.NODE_ENV === 'test') {
+    module.exports = {
+        buildPrompt,
+        fileExists
+    };
+}
