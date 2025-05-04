@@ -1,5 +1,8 @@
 # LLM PR Reviewer
 
+> [!NOTE]
+> This GitHub Actions is still alpha version.
+
 A GitHub Action that automatically reviews Pull Requests and adds helpful code improvement suggestions as comments using an LLM (Large Language Model).
 
 ## Features
