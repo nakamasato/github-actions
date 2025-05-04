@@ -1,14 +1,14 @@
-name: PR Description Writer Test
+name: pr-description-writer-test
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'pr-description-writer/**'
+      - 'pr-description-writer/**.js'
   pull_request:
     branches: [ main ]
     paths:
-      - 'pr-description-writer/**'
+      - 'pr-description-writer/**.js'
 
 jobs:
   test:
@@ -16,19 +16,19 @@ jobs:
     defaults:
       run:
         working-directory: ./pr-description-writer
-        
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: pr-description-writer/package-lock.json
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run tests
         run: npm test
