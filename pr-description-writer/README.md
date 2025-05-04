@@ -21,12 +21,12 @@ on:
   pull_request:
     types: [opened, synchronize]
 
-permissions:
-  pull-requests: write
-
 jobs:
   generate-description:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
