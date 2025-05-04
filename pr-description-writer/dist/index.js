@@ -10,6 +10,111 @@ const fs = (__nccwpck_require__(9896).promises);
 const path = __nccwpck_require__(6928);
 const axios = __nccwpck_require__(7269);
 
+// Function to calculate similarity between existing and new PR content using LLM
+async function calculateLLMSimilarity(existingTitle, existingBody, newTitle, newBody, llmProvider, apiKey, model) {
+    const prompt = `
+Please compare the following two PR titles and descriptions and rate their similarity on a scale from 0.0 to 1.0.
+0.0 means completely different, 1.0 means identical in meaning.
+Focus on semantic similarity rather than just word overlap. If they convey the same core changes and purpose, they should have a high similarity score.
+
+PR #1 (Current):
+Title: ${existingTitle || 'N/A'}
+Description: ${existingBody || 'N/A'}
+
+PR #2 (Generated):
+Title: ${newTitle || 'N/A'}
+Description: ${newBody || 'N/A'}
+
+Please provide only a numeric similarity score between 0.0 and 1.0 in your response, with no explanation or additional text.
+`;
+
+    try {
+        let similarityScore;
+
+        if (llmProvider === 'openai') {
+            similarityScore = await callOpenAIForSimilarity(prompt, apiKey, model);
+        } else if (llmProvider === 'anthropic') {
+            similarityScore = await callAnthropicForSimilarity(prompt, apiKey, model);
+        } else {
+            throw new Error(`Unsupported LLM provider for similarity calculation: ${llmProvider}`);
+        }
+
+        // Convert to number and ensure it's between 0 and 1
+        const score = Math.max(0, Math.min(1, parseFloat(similarityScore) || 0));
+        core.info(`Similarity score between current and new PR content: ${score}`);
+        return score;
+    } catch (error) {
+        core.warning(`Error calculating similarity: ${error.message}. Defaulting to low similarity.`);
+        return 0; // Default to low similarity (which will trigger an update)
+    }
+}
+
+// OpenAI-specific function to get similarity score
+async function callOpenAIForSimilarity(prompt, apiKey, model) {
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: model,
+                messages: [{
+                    role: 'user',
+                    content: prompt
+                }],
+                temperature: 0.1, // Lower temperature for more deterministic response
+                max_tokens: 10,   // We only need a number
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                }
+            }
+        );
+
+        const content = response.data.choices[0].message.content.trim();
+        // Extract just the number from the response
+        const numberMatch = content.match(/([0-9]*[.])?[0-9]+/);
+        return numberMatch ? numberMatch[0] : "0";
+    } catch (error) {
+        core.warning(`OpenAI similarity API error: ${error.message}`);
+        return "0";
+    }
+}
+
+// Anthropic-specific function to get similarity score
+async function callAnthropicForSimilarity(prompt, apiKey, model) {
+    try {
+        const response = await axios.post(
+            'https://api.anthropic.com/v1/messages',
+            {
+                model: model,
+                messages: [{
+                    role: 'user',
+                    content: prompt
+                }],
+                max_tokens: 10,   // We only need a number
+                temperature: 0.1, // Lower temperature for more deterministic response
+                system: "You are an expert at determining the semantic similarity between texts. Provide only a number between 0.0 and 1.0 as your response, with no explanation."
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Anthropic-Version': '2023-06-01',
+                    'x-api-key': apiKey
+                }
+            }
+        );
+
+        const content = response.data.content[0].text.trim();
+        // Extract just the number from the response
+        const numberMatch = content.match(/([0-9]*[.])?[0-9]+/);
+        return numberMatch ? numberMatch[0] : "0";
+    } catch (error) {
+        core.warning(`Anthropic similarity API error: ${error.message}`);
+        return "0";
+    }
+}
+
 // Helper function to check if a file exists
 async function fileExists(filePath) {
     try {
@@ -32,6 +137,7 @@ async function run() {
         const openaiModel = core.getInput('openai_model');
         const anthropicApiKey = core.getInput('anthropic_api_key');
         const anthropicModel = core.getInput('anthropic_model');
+        const similarityThreshold = parseFloat(core.getInput('similarity_threshold')) || 0.5;
 
         // Initialize Octokit client
         const octokit = github.getOctokit(githubToken);
@@ -43,6 +149,18 @@ async function run() {
         if (!prNumber) {
             throw new Error('This action must be run in the context of a pull request');
         }
+
+        // Fetch current PR title and description
+        const { data: currentPR } = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber
+        });
+
+        const currentTitle = currentPR.title;
+        const currentBody = currentPR.body || '';
+        core.info(`Current PR title: "${currentTitle}"`);
+        core.info(`Current PR description length: ${currentBody.length} characters`);
 
         // Fetch changed files in the PR
         const { data: changedFiles } = await octokit.rest.pulls.listFiles({
@@ -155,7 +273,7 @@ async function run() {
         // Build prompt for the LLM
         const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
 
-        // Update the PR with the generated title and description
+        // Generate the PR title and description
         let result;
         try {
             if (llmProvider === 'openai') {
@@ -166,21 +284,41 @@ async function run() {
                 throw new Error(`Unsupported LLM provider: ${llmProvider}`);
             }
 
-            // No need to parse further, the API functions now always return
-            // an object with title and description properties
-            const title = result.title;
-            const body = result.description;
+            const newTitle = result.title;
+            const newBody = result.description;
 
-            // Update the PR with the generated title and description
-            await octokit.rest.pulls.update({
-                owner,
-                repo,
-                pull_number: prNumber,
-                title,
-                body
-            });
+            // Always log the newly generated content
+            core.info(`Generated PR title: "${newTitle}"`);
+            core.info(`Generated PR description length: ${newBody.length} characters`);
 
-            core.info('Successfully updated PR title and description');
+            // Calculate similarity between current and new content
+            const similarityScore = await calculateLLMSimilarity(
+                currentTitle,
+                currentBody,
+                newTitle,
+                newBody,
+                llmProvider,
+                llmProvider === 'openai' ? openaiApiKey : anthropicApiKey,
+                llmProvider === 'openai' ? openaiModel : anthropicModel
+            );
+
+            // If similarity is below threshold, update the PR
+            if (similarityScore < similarityThreshold) {
+                core.info(`Similarity score ${similarityScore} is below threshold ${similarityThreshold}. Updating PR...`);
+
+                // Update the PR with the generated title and description
+                await octokit.rest.pulls.update({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    title: newTitle,
+                    body: newBody
+                });
+
+                core.info('Successfully updated PR title and description');
+            } else {
+                core.info(`Similarity score ${similarityScore} is above threshold ${similarityThreshold}. Not updating PR.`);
+            }
         } catch (error) {
             core.setFailed(`Failed to generate or update PR description: ${error.message}`);
         }
@@ -331,64 +469,6 @@ async function callAnthropic(prompt, apiKey, model) {
     }
 }
 
-function parseGeneratedContent(content) {
-    // If we already have a parsed JSON object with title and description/body
-    if (content && typeof content === 'object') {
-        if (content.title) {
-            // If we have a direct JSON response
-            return {
-                title: content.title,
-                body: content.description || content.body || ''
-            };
-        } else if (content.rawContent) {
-            // Fall back to parsing text if JSON parsing failed earlier
-            const textContent = content.rawContent;
-            let title = '';
-            let body = '';
-
-            // Extract title
-            const titleMatch = textContent.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
-            if (titleMatch) {
-                title = titleMatch[1].trim();
-            }
-
-            // Extract description
-            const bodyMatch = textContent.match(/DESCRIPTION:\s*([\s\S]*?)$/);
-            if (bodyMatch) {
-                body = bodyMatch[1].trim();
-            }
-
-            return { title, body };
-        }
-    }
-
-    // If we have a string, try to parse it as text
-    if (typeof content === 'string') {
-        let title = '';
-        let body = '';
-
-        // Extract title
-        const titleMatch = content.match(/TITLE:\s*(.*?)(?:\n\n|\n|$)/);
-        if (titleMatch) {
-            title = titleMatch[1].trim();
-        }
-
-        // Extract description
-        const bodyMatch = content.match(/DESCRIPTION:\s*([\s\S]*?)$/);
-        if (bodyMatch) {
-            body = bodyMatch[1].trim();
-        }
-
-        return { title, body };
-    }
-
-    // Default fallback
-    return {
-        title: 'Automated PR Description',
-        body: 'This PR description was automatically generated, but the format could not be parsed correctly.'
-    };
-}
-
 run().catch(error => {
     core.setFailed(`Unhandled error: ${error.message}`);
 });
@@ -397,7 +477,8 @@ run().catch(error => {
 if (process.env.NODE_ENV === 'test') {
     module.exports = {
         buildPrompt,
-        fileExists
+        fileExists,
+        calculateLLMSimilarity
     };
 }
 
