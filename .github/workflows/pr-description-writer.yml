@@ -16,10 +16,9 @@ jobs:
           fetch-depth: 0
 
       - name: Generate PR Description
-        uses: nakamasato/github-actions/pr-description-writer@add-pr-description-writer
+        uses: ./pr-description-writer
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # 使用するLLMプロバイダーを選択
           llm_provider: openai
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           openai_model: gpt-4o-mini
