@@ -1,17 +1,21 @@
 以下の指示に従ってPull Requestのタイトルと説明を生成してください：
 
 1. title:
-   - 簡潔で明確なタイトルを付けてください（50文字以内が理想）
-   - タイトルの言語は英語
-   - タイトルの最初は小文字
-   - タイトルの形式: '[タイプ]: 変更内容の要約'
-   - タイプの例: fix, feat, refactor, docs, test, chore など
-   - plain text and no style
+    - format は conventional commit `<type>[optional scope]: <description>`
+        - type: fix, feat, build, chore, ci, docs, style, refactor, perf, test
+    - 簡潔で明確なタイトルを付けてください（50文字以内が理想）
+    - 言語は英語
+    - 最初は小文字
+    - タイプの例: fix, feat, refactor, docs, test, chore など
+    - plain text and no style
 
 2. description:
-   - 基本はWhatとWhyのセクションを簡潔にわかりやすく
-   - Whatも Whyもともにリスト形式
-   - 変更点は箇条書きでリストアップしてください (リストの数は多くなりすぎないように、2,3個がベスト)
-   - 破壊的変更がある場合は目立つように記載してください
-   - 関連するチケットやIssueがある場合はリンクしてください
-   - 絵文字は適度に使用してOKです（特に見出しの前など）
+    - 基本はWhatとWhyのセクション (## What と ## Why)を簡潔にわかりやすく
+    - WhatもWhyもともにリスト形式
+    - What
+        - 変更点は箇条書き
+        - リストの数は多くなりすぎないように、2,3個がベスト. Max5個
+        - リストの数が多い場合は、リストの階層を使ってわかりやすくする (マックス階層の深さ2)
+    - 破壊的変更がある場合は目立つように記載してください (ある場合のみ ## Breaking Changes を追加)
+    - 関連するチケットやIssueがある場合はリンクしてください (ある場合のみ ## Related Issuesを追加)
+    - 絵文字は適度に使用してOKです（特に見出しの前など）
