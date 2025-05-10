@@ -266,6 +266,12 @@ async function run() {
         // Build prompt for the LLM
         const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
+        // Add prompt to job summary for debugging
+        await core.summary
+          .addHeading('PR Description Generation Prompt')
+          .addCodeBlock(prompt, "text")
+          .write();
+
         // Generate the PR description
         let result;
         try {
@@ -282,6 +288,12 @@ async function run() {
             // Always log the newly generated content
             core.info(`Generated PR description length: ${newBody.length} characters`);
 
+            // Add generated PR description to job summary for debugging
+            await core.summary
+              .addHeading('Generated PR Description')
+              .addCodeBlock(newBody, "markdown")
+              .write();
+
             // Calculate similarity between current and new content
             const similarityScore = await calculateLLMSimilarity(
                 currentBody,
@@ -290,6 +302,13 @@ async function run() {
                 llmProvider === 'openai' ? openaiApiKey : anthropicApiKey,
                 llmProvider === 'openai' ? openaiModel : anthropicModel
             );
+
+            // Add similarity calculation to job summary
+            await core.summary
+              .addHeading('PR Description Similarity')
+              .addRaw(`Current vs. Generated: **${similarityScore.toFixed(2)}** (threshold: ${similarityThreshold})`)
+              .addRaw(`<br>Will ${similarityScore < similarityThreshold ? 'update' : 'not update'} PR description`)
+              .write();
 
             // If similarity is below threshold, update the PR
             if (similarityScore < similarityThreshold) {
