@@ -12,7 +12,7 @@ inputs:
     required: false
     default: ".github/pull_request_template.md"
   prompt_path:
-    description: "Path to a custom prompt file for how to fill the PR template"
+    description: "Path to a custom prompt file for how to fill the PR template. If not provided, will use the bundled pr_prompt.txt file by default."
     required: false
     default: ""
   github_token:
@@ -27,14 +27,14 @@ inputs:
   openai_model:
     description: "OpenAI model to use"
     required: false
-    default: "gpt-4-turbo"
+    default: "gpt-4o-mini"
   anthropic_api_key:
     description: "Anthropic API key"
     required: false
   anthropic_model:
     description: "Anthropic model to use"
     required: false
-    default: "claude-3-opus-20240229"
+    default: "claude-3-5-sonnet-latest"
   similarity_threshold:
     description: "Threshold to determine if the new generated content is significantly different (0.0-1.0, where higher means more different)"
     required: false
