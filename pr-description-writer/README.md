@@ -1,12 +1,12 @@
 # PR Description Writer
 
-A GitHub Action that automatically generates Pull Request titles and descriptions based on code changes.
+A GitHub Action that automatically generates Pull Request descriptions based on code changes.
 
 ## Motivation
 
 [pr-agent](https://github.com/qodo-ai/pr-agent) only provides [marker-template](https://qodo-merge-docs.qodo.ai/tools/describe/?h=marker#markers-template)([pr-agent#273](https://github.com/qodo-ai/pr-agent/pull/273)) and doesn't support [pull request template](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository) ([pr-agent#213](https://github.com/qodo-ai/pr-agent/issues/213)).
 
-With this GitHub Actions, you can configure how to generate pr title and description more flexibly.
+With this GitHub Actions, you can configure how to generate PR descriptions more flexibly.
 
 ## Features
 
@@ -15,6 +15,7 @@ With this GitHub Actions, you can configure how to generate pr title and descrip
 - Supports custom PR templates
 - Can learn from example PRs to match your team's style
 - Allows custom prompt instructions
+- Update PR description
 
 ## Usage
 
@@ -85,18 +86,9 @@ Please follow these guidelines when generating the PR description:
 Here's an example of a custom prompt file in Japanese for conventional commit style PRs:
 
 ```
-以下の指示に従ってPull Requestのタイトルと説明を生成してください：
+以下の指示に従ってPull Requestの説明を生成してください：
 
-1. title:
-    - format は conventional commit `<type>[optional scope]: <description>`
-        - type: fix, feat, build, chore, ci, docs, style, refactor, perf, test
-    - 簡潔で明確なタイトルを付けてください（50文字以内が理想）
-    - 言語は英語
-    - 最初は小文字
-    - タイプの例: fix, feat, refactor, docs, test, chore など
-    - plain text and no style
-
-2. description:
+1. description:
     - 基本はWhatとWhyのセクション (## What と ## Why)を簡潔にわかりやすく
     - WhatもWhyもともにリスト形式
     - What

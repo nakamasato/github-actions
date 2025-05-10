@@ -1,5 +1,5 @@
 name: "PR Description Writer"
-description: "Automatically generate PR title and description based on code changes"
+description: "Automatically generate PR description based on code changes"
 author: "Your Name"
 
 inputs:
