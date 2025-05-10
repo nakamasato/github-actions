@@ -269,7 +269,7 @@ async function run() {
         }
 
         // Build prompt for the LLM
-        const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
+        const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
         // Generate the PR description
         let result;
@@ -321,13 +321,20 @@ async function run() {
     }
 }
 
-function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples) {
+function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody) {
     let prompt = `You are a GitHub PR description writer. Your task is to generate a description for a pull request based on the code changes.
 
 CODE CHANGES:
 ${JSON.stringify(fileChanges, null, 2)}
 
 `;
+
+    if (currentBody && currentBody.trim() !== '') {
+        prompt += `CURRENT PR DESCRIPTION:
+${currentBody}
+
+`;
+    }
 
     if (prTemplate) {
         prompt += `PR TEMPLATE TO FILL:
@@ -356,6 +363,8 @@ ${customPrompt}
 Please generate a concise, informative PR description that summarizes the changes and their purpose.
 The description should explain the purpose of the changes and any relevant details.
 If a PR template is provided, use it to structure your description.
+If a current PR description is provided, use it as a starting point and enhance it based on the code changes.
+Please keep links, images, and any other references in the current body if exists.
 
 Your response should be in the following format:
 DESCRIPTION:

@@ -9,8 +9,9 @@ describe('buildPrompt', () => {
         const prTemplate = '';
         const customPrompt = '';
         const prExamples = [];
+        const currentBody = '';
 
-        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
         expect(result).toContain('CODE CHANGES:');
         expect(result).toContain('test.js');
@@ -26,8 +27,9 @@ describe('buildPrompt', () => {
         const prTemplate = '## What changed\n\n## Why';
         const customPrompt = '';
         const prExamples = [];
+        const currentBody = '';
 
-        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
         expect(result).toContain('PR TEMPLATE TO FILL:');
         expect(result).toContain('## What changed');
@@ -40,8 +42,9 @@ describe('buildPrompt', () => {
         const prTemplate = '';
         const customPrompt = 'Use bullet points for changes';
         const prExamples = [];
+        const currentBody = '';
 
-        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
         expect(result).toContain('CUSTOM INSTRUCTIONS:');
         expect(result).toContain('Use bullet points for changes');
@@ -56,12 +59,42 @@ describe('buildPrompt', () => {
         const prExamples = [
             { title: 'Example PR', body: 'Example description', url: 'https://github.com/example/repo/pull/1' }
         ];
+        const currentBody = '';
 
-        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
         expect(result).toContain('EXAMPLE PRS:');
         expect(result).toContain('Example PR');
         expect(result).toContain('Example description');
+    });
+
+    test('includes current PR description when provided', () => {
+        const fileChanges = [
+            { filename: 'test.js', status: 'modified', content: 'test content' }
+        ];
+        const prTemplate = '';
+        const customPrompt = '';
+        const prExamples = [];
+        const currentBody = 'This is the current PR description.';
+
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
+
+        expect(result).toContain('CURRENT PR DESCRIPTION:');
+        expect(result).toContain('This is the current PR description.');
+    });
+
+    test('does not include current PR description section when empty', () => {
+        const fileChanges = [
+            { filename: 'test.js', status: 'modified', content: 'test content' }
+        ];
+        const prTemplate = '';
+        const customPrompt = '';
+        const prExamples = [];
+        const currentBody = '';
+
+        const result = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
+
+        expect(result).not.toContain('CURRENT PR DESCRIPTION:');
     });
 });
 
