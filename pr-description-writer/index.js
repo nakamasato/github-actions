@@ -5,18 +5,16 @@ const path = require('path');
 const axios = require('axios');
 
 // Function to calculate similarity between existing and new PR content using LLM
-async function calculateLLMSimilarity(existingTitle, existingBody, newTitle, newBody, llmProvider, apiKey, model) {
+async function calculateLLMSimilarity(existingBody, newBody, llmProvider, apiKey, model) {
     const prompt = `
-Please compare the following two PR titles and descriptions and rate their similarity on a scale from 0.0 to 1.0.
+Please compare the following two PR descriptions and rate their similarity on a scale from 0.0 to 1.0.
 0.0 means completely different, 1.0 means identical in meaning.
 Focus on semantic similarity rather than just word overlap. If they convey the same core changes and purpose, they should have a high similarity score.
 
 PR #1 (Current):
-Title: ${existingTitle || 'N/A'}
 Description: ${existingBody || 'N/A'}
 
 PR #2 (Generated):
-Title: ${newTitle || 'N/A'}
 Description: ${newBody || 'N/A'}
 
 Please provide only a numeric similarity score between 0.0 and 1.0 in your response, with no explanation or additional text.
@@ -267,7 +265,7 @@ async function run() {
         // Build prompt for the LLM
         const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples);
 
-        // Generate the PR title and description
+        // Generate the PR description
         let result;
         try {
             if (llmProvider === 'openai') {
@@ -278,18 +276,14 @@ async function run() {
                 throw new Error(`Unsupported LLM provider: ${llmProvider}`);
             }
 
-            const newTitle = result.title;
             const newBody = result.description;
 
             // Always log the newly generated content
-            core.info(`Generated PR title: "${newTitle}"`);
             core.info(`Generated PR description length: ${newBody.length} characters`);
 
             // Calculate similarity between current and new content
             const similarityScore = await calculateLLMSimilarity(
-                currentTitle,
                 currentBody,
-                newTitle,
                 newBody,
                 llmProvider,
                 llmProvider === 'openai' ? openaiApiKey : anthropicApiKey,
@@ -300,16 +294,15 @@ async function run() {
             if (similarityScore < similarityThreshold) {
                 core.info(`Similarity score ${similarityScore} is below threshold ${similarityThreshold}. Updating PR...`);
 
-                // Update the PR with the generated title and description
+                // Update only the PR description, not the title
                 await octokit.rest.pulls.update({
                     owner,
                     repo,
                     pull_number: prNumber,
-                    title: newTitle,
                     body: newBody
                 });
 
-                core.info('Successfully updated PR title and description');
+                core.info('Successfully updated PR description only');
             } else {
                 core.info(`Similarity score ${similarityScore} is above threshold ${similarityThreshold}. Not updating PR.`);
             }
@@ -323,7 +316,7 @@ async function run() {
 }
 
 function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples) {
-    let prompt = `You are a GitHub PR description writer. Your task is to generate a title and description for a pull request based on the code changes.
+    let prompt = `You are a GitHub PR description writer. Your task is to generate a description for a pull request based on the code changes.
 
 CODE CHANGES:
 ${JSON.stringify(fileChanges, null, 2)}
@@ -354,14 +347,11 @@ ${customPrompt}
     }
 
     prompt += `
-Please generate a concise, informative PR title and description that summarizes the changes and their purpose.
-The title should be clear and descriptive.
+Please generate a concise, informative PR description that summarizes the changes and their purpose.
 The description should explain the purpose of the changes and any relevant details.
 If a PR template is provided, use it to structure your description.
 
 Your response should be in the following format:
-TITLE: [generated title]
-
 DESCRIPTION:
 [generated description]`;
 
@@ -376,7 +366,7 @@ async function callOpenAI(prompt, apiKey, model) {
                 model: model,
                 messages: [{
                     role: 'user',
-                    content: prompt + "\n\nReturn your response as a JSON object with 'title' and 'description' fields. Do not include any other text."
+                    content: prompt + "\n\nReturn your response as a JSON object with a 'description' field. Do not include any other text."
                 }],
                 response_format: { type: "json_object" },
                 temperature: 0.7,
@@ -395,20 +385,17 @@ async function callOpenAI(prompt, apiKey, model) {
         try {
             const parsed = JSON.parse(content);
             return {
-                title: parsed.title || 'Automated PR Description',
                 description: parsed.description || parsed.body || ''
             };
         } catch (error) {
             core.warning(`Failed to parse OpenAI response as JSON: ${error.message}`);
             return {
-                title: 'Automated PR Description',
                 description: 'The PR description could not be generated correctly. The API did not return valid JSON.'
             };
         }
     } catch (error) {
         core.error(`OpenAI API error: ${error.message}`);
         return {
-            title: 'Automated PR Description',
             description: `The PR description could not be generated due to an API error: ${error.message}`
         };
     }
@@ -422,10 +409,10 @@ async function callAnthropic(prompt, apiKey, model) {
                 model: model,
                 messages: [{
                     role: 'user',
-                    content: prompt + "\n\nReturn your response as a JSON object with 'title' and 'description' fields. The JSON object should be valid and parseable. Do not include any other text outside of the JSON object."
+                    content: prompt + "\n\nReturn your response as a JSON object with a 'description' field. The JSON object should be valid and parseable. Do not include any other text outside of the JSON object."
                 }],
                 max_tokens: 2000,
-                system: "Return your response as a valid, parseable JSON object with 'title' and 'description' fields. Include only the JSON object in your response, with no additional explanations or text."
+                system: "Return your response as a valid, parseable JSON object with a 'description' field. Include only the JSON object in your response, with no additional explanations or text."
             },
             {
                 headers: {
@@ -444,20 +431,17 @@ async function callAnthropic(prompt, apiKey, model) {
             const jsonStr = jsonMatch ? jsonMatch[0] : content;
             const parsed = JSON.parse(jsonStr);
             return {
-                title: parsed.title || 'Automated PR Description',
                 description: parsed.description || parsed.body || ''
             };
         } catch (error) {
             core.warning(`Failed to parse Anthropic response as JSON: ${error.message}`);
             return {
-                title: 'Automated PR Description',
                 description: 'The PR description could not be generated correctly. The API did not return valid JSON.'
             };
         }
     } catch (error) {
         core.error(`Anthropic API error: ${error.message}`);
         return {
-            title: 'Automated PR Description',
             description: `The PR description could not be generated due to an API error: ${error.message}`
         };
     }

@@ -1,15 +1,6 @@
-以下の指示に従ってPull Requestのタイトルと説明を生成してください：
+以下の指示に従ってPull Requestの説明を生成してください：
 
-1. title:
-    - format は conventional commit `<type>[optional scope]: <description>`
-        - type: fix, feat, build, chore, ci, docs, style, refactor, perf, test
-    - 簡潔で明確なタイトルを付けてください（50文字以内が理想）
-    - 言語は英語
-    - 最初は小文字
-    - タイプの例: fix, feat, refactor, docs, test, chore など
-    - plain text and no style
-
-2. description:
+description:
     - 基本はWhatとWhyのセクション (## What と ## Why)を簡潔にわかりやすく
     - WhatもWhyもともにリスト形式
     - What

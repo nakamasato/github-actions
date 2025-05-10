@@ -33,9 +33,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'openai',
             'fake_api_key',
@@ -75,9 +73,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'anthropic',
             'fake_api_key',
@@ -110,9 +106,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         axios.post.mockRejectedValueOnce(new Error('API error'));
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'openai',
             'fake_api_key',
@@ -129,9 +123,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         axios.post.mockRejectedValueOnce(new Error('API error'));
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'anthropic',
             'fake_api_key',
@@ -158,9 +150,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'openai',
             'fake_api_key',
@@ -184,9 +174,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'anthropic',
             'fake_api_key',
@@ -199,9 +187,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
 
     test('handles unsupported LLM provider', async () => {
         const similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'unknown_provider',
             'fake_api_key',
@@ -228,9 +214,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         let similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'openai',
             'fake_api_key',
@@ -254,9 +238,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
         });
 
         similarity = await calculateLLMSimilarity(
-            'Fix login bug',
             'This PR fixes the login bug',
-            'Fix authentication issue',
             'This PR fixes an auth problem',
             'openai',
             'fake_api_key',
