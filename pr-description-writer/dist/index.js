@@ -364,6 +364,7 @@ Please generate a concise, informative PR description that summarizes the change
 The description should explain the purpose of the changes and any relevant details.
 If a PR template is provided, use it to structure your description.
 If a current PR description is provided, use it as a starting point and enhance it based on the code changes.
+Please keep links, images, and any other references in the current body if exists.
 
 Your response should be in the following format:
 DESCRIPTION:
