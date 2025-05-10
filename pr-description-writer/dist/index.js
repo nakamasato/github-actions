@@ -272,6 +272,12 @@ async function run() {
         // Build prompt for the LLM
         const prompt = buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody);
 
+        // Add prompt to job summary for debugging
+        await core.summary
+          .addHeading('PR Description Generation Prompt')
+          .addCodeBlock(prompt, "text")
+          .write();
+
         // Generate the PR description
         let result;
         try {
@@ -288,6 +294,12 @@ async function run() {
             // Always log the newly generated content
             core.info(`Generated PR description length: ${newBody.length} characters`);
 
+            // Add generated PR description to job summary for debugging
+            await core.summary
+              .addHeading('Generated PR Description')
+              .addCodeBlock(newBody, "markdown")
+              .write();
+
             // Calculate similarity between current and new content
             const similarityScore = await calculateLLMSimilarity(
                 currentBody,
@@ -296,6 +308,15 @@ async function run() {
                 llmProvider === 'openai' ? openaiApiKey : anthropicApiKey,
                 llmProvider === 'openai' ? openaiModel : anthropicModel
             );
+
+            // Add similarity calculation to job summary
+            await core.summary
+              .addHeading('PR Description Similarity')
+              .addRaw(`Current vs. Generated: **${similarityScore.toFixed(2)}** (threshold: ${similarityThreshold})`)
+              .addRaw(`<br>Will ${similarityScore < similarityThreshold ? 'update' : 'not update'} PR description`)
+              .addHeading('Current PR Description')
+              .addCodeBlock(currentBody || 'No current description', 'markdown')
+              .write();
 
             // If similarity is below threshold, update the PR
             if (similarityScore < similarityThreshold) {
@@ -345,27 +366,35 @@ function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentB
     let prompt = `You are a GitHub PR description writer. Your task is to generate a description for a pull request based on the code changes.
 
 CODE CHANGES:
+\`\`\`json
 ${JSON.stringify(changesWithDiffs, null, 2)}
+\`\`\`
 
 `;
 
     if (currentBody && currentBody.trim() !== '') {
         prompt += `CURRENT PR DESCRIPTION:
+\`\`\`
 ${currentBody}
+\`\`\`
 
 `;
     }
 
     if (prTemplate) {
         prompt += `PR TEMPLATE TO FILL:
+\`\`\`
 ${prTemplate}
+\`\`\`
 
 `;
     }
 
     if (customPrompt) {
         prompt += `CUSTOM INSTRUCTIONS:
+\`\`\`
 ${customPrompt}
+\`\`\`
 
 `;
     }
@@ -375,7 +404,7 @@ ${customPrompt}
         prExamples.forEach((example, index) => {
             prompt += `Example ${index + 1}:\n`;
             prompt += `Title: ${example.title}\n`;
-            prompt += `Body: ${example.body}\n\n`;
+            prompt += `\`\`\`\nBody: ${example.body}\n\`\`\`\n\n`;
         });
     }
 
