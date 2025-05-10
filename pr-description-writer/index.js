@@ -308,6 +308,8 @@ async function run() {
               .addHeading('PR Description Similarity')
               .addRaw(`Current vs. Generated: **${similarityScore.toFixed(2)}** (threshold: ${similarityThreshold})`)
               .addRaw(`<br>Will ${similarityScore < similarityThreshold ? 'update' : 'not update'} PR description`)
+              .addHeading('Current PR Description')
+              .addCodeBlock(currentBody || 'No current description', 'markdown')
               .write();
 
             // If similarity is below threshold, update the PR
