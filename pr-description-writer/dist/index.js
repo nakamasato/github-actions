@@ -205,7 +205,8 @@ async function run() {
                     content: fileContent,
                     additions: file.additions,
                     deletions: file.deletions,
-                    changes: file.changes
+                    changes: file.changes,
+                    patch: file.patch || null // Include the patch diff
                 });
             }
         }
@@ -322,10 +323,29 @@ async function run() {
 }
 
 function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentBody) {
+    // Create a more structured view of the changes with diffs
+    let changesWithDiffs = fileChanges.map(file => {
+        // Create a simplified version to reduce token usage
+        const simplified = {
+            filename: file.filename,
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            changes: file.changes
+        };
+
+        // Add patch information if available
+        if (file.patch) {
+            simplified.diff = file.patch;
+        }
+
+        return simplified;
+    });
+
     let prompt = `You are a GitHub PR description writer. Your task is to generate a description for a pull request based on the code changes.
 
 CODE CHANGES:
-${JSON.stringify(fileChanges, null, 2)}
+${JSON.stringify(changesWithDiffs, null, 2)}
 
 `;
 
@@ -365,6 +385,9 @@ The description should explain the purpose of the changes and any relevant detai
 If a PR template is provided, use it to structure your description.
 If a current PR description is provided, use it as a starting point and enhance it based on the code changes.
 Please keep links, images, and any other references in the current body if exists.
+
+Pay special attention to the diff patches provided in the code changes, as they show the exact lines that were modified.
+Use these diffs to understand the specific code changes and provide more accurate descriptions.
 
 Your response should be in the following format:
 DESCRIPTION:
