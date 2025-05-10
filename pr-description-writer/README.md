@@ -44,11 +44,11 @@ jobs:
           # anthropic config
           llm_provider: anthropic
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          anthropic_model: claude-3-opus-20240229
+          # anthropic_model is claude-3-5-sonnet-latest by default
           # openai config
           # llm_provider: openai
           # openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          # openai_model: gpt-4o-mini
+          # openai_model is gpt-4o-mini by default
           # Optional parameters
           # prs: 'https://github.com/org/repo/pull/1,https://github.com/org/repo/pull/2'
           # pull_request_template_path: '.github/custom_template.md'
@@ -62,16 +62,18 @@ jobs:
 | `github_token`              | GitHub token for API access                           | Yes      | N/A                               |
 | `llm_provider`              | LLM provider to use ('openai' or 'anthropic')         | Yes      | N/A                               |
 | `openai_api_key`            | OpenAI API key (required if using OpenAI)             | No       | N/A                               |
-| `openai_model`              | OpenAI model to use                                   | No       | `gpt-4-turbo`                     |
+| `openai_model`              | OpenAI model to use                                   | No       | `gpt-4o-mini`                     |
 | `anthropic_api_key`         | Anthropic API key (required if using Anthropic)       | No       | N/A                               |
-| `anthropic_model`           | Anthropic model to use                                | No       | `claude-3-opus-20240229`          |
+| `anthropic_model`           | Anthropic model to use                                | No       | `claude-3-5-sonnet-latest`        |
 | `prs`                       | Comma-separated list of example PR URLs               | No       | `""`                              |
 | `pull_request_template_path`| Path to PR template file                              | No       | `.github/pull_request_template.md`|
-| `prompt_path`               | Path to custom prompt file                            | No       | `""`                              |
+| `prompt_path`               | Path to custom prompt file                            | No       | Uses bundled [pr_prompt.txt](pr_prompt.txt) by default |
 
 ## Custom Prompts
 
-You can create a custom prompt file to guide how the LLM should fill out your PR template. For example:
+By default, the action uses the bundled [pr_prompt.txt](pr_prompt.txt) file. You can create your own custom prompt file to guide how the LLM should fill out your PR template and specify its path using the `prompt_path` input.
+
+Example of a custom prompt file:
 
 ```
 Please follow these guidelines when generating the PR description:

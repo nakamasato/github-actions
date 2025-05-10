@@ -3,6 +3,13 @@ const github = require('@actions/github');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const fsSync = require('fs');
+
+// Load default prompt from pr_prompt.txt
+const DEFAULT_PROMPT_PATH = path.join(__dirname, 'pr_prompt.txt');
+const DEFAULT_PROMPT = fsSync.existsSync(DEFAULT_PROMPT_PATH)
+  ? fsSync.readFileSync(DEFAULT_PROMPT_PATH, 'utf8')
+  : '';
 
 // Function to calculate similarity between existing and new PR content using LLM
 async function calculateLLMSimilarity(existingBody, newBody, llmProvider, apiKey, model) {
@@ -220,18 +227,29 @@ async function run() {
             }
         }
 
-        // Read custom prompt if available
+        // Read custom prompt if available or use the default prompt
         let customPrompt = '';
         if (promptPath) {
             try {
                 const promptExists = await fileExists(promptPath);
                 if (promptExists) {
                     customPrompt = await fs.readFile(promptPath, 'utf8');
+                    core.info(`Using custom prompt from ${promptPath}`);
                 } else {
-                    core.info(`Custom prompt file not found at ${promptPath}. Continuing without custom prompt.`);
+                    core.info(`Custom prompt file not found at ${promptPath}. Using default prompt.`);
+                    customPrompt = DEFAULT_PROMPT;
                 }
             } catch (error) {
-                core.warning(`Could not read custom prompt: ${error.message}`);
+                core.warning(`Could not read custom prompt: ${error.message}. Using default prompt.`);
+                customPrompt = DEFAULT_PROMPT;
+            }
+        } else {
+            // If promptPath is not provided, use the default prompt
+            customPrompt = DEFAULT_PROMPT;
+            if (customPrompt) {
+                core.info('Using default prompt from pr_prompt.txt');
+            } else {
+                core.info('No default prompt available. Continuing without custom prompt.');
             }
         }
 

@@ -9,6 +9,13 @@ const github = __nccwpck_require__(3228);
 const fs = (__nccwpck_require__(9896).promises);
 const path = __nccwpck_require__(6928);
 const axios = __nccwpck_require__(7269);
+const fsSync = __nccwpck_require__(9896);
+
+// Load default prompt from pr_prompt.txt
+const DEFAULT_PROMPT_PATH = __nccwpck_require__.ab + "pr_prompt.txt";
+const DEFAULT_PROMPT = fsSync.existsSync(__nccwpck_require__.ab + "pr_prompt.txt")
+  ? fsSync.readFileSync(DEFAULT_PROMPT_PATH, 'utf8')
+  : '';
 
 // Function to calculate similarity between existing and new PR content using LLM
 async function calculateLLMSimilarity(existingBody, newBody, llmProvider, apiKey, model) {
@@ -226,18 +233,29 @@ async function run() {
             }
         }
 
-        // Read custom prompt if available
+        // Read custom prompt if available or use the default prompt
         let customPrompt = '';
         if (promptPath) {
             try {
                 const promptExists = await fileExists(promptPath);
                 if (promptExists) {
                     customPrompt = await fs.readFile(promptPath, 'utf8');
+                    core.info(`Using custom prompt from ${promptPath}`);
                 } else {
-                    core.info(`Custom prompt file not found at ${promptPath}. Continuing without custom prompt.`);
+                    core.info(`Custom prompt file not found at ${promptPath}. Using default prompt.`);
+                    customPrompt = DEFAULT_PROMPT;
                 }
             } catch (error) {
-                core.warning(`Could not read custom prompt: ${error.message}`);
+                core.warning(`Could not read custom prompt: ${error.message}. Using default prompt.`);
+                customPrompt = DEFAULT_PROMPT;
+            }
+        } else {
+            // If promptPath is not provided, use the default prompt
+            customPrompt = DEFAULT_PROMPT;
+            if (customPrompt) {
+                core.info('Using default prompt from pr_prompt.txt');
+            } else {
+                core.info('No default prompt available. Continuing without custom prompt.');
             }
         }
 
