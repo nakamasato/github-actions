@@ -358,27 +358,35 @@ function buildPrompt(fileChanges, prTemplate, customPrompt, prExamples, currentB
     let prompt = `You are a GitHub PR description writer. Your task is to generate a description for a pull request based on the code changes.
 
 CODE CHANGES:
+\`\`\`json
 ${JSON.stringify(changesWithDiffs, null, 2)}
+\`\`\`
 
 `;
 
     if (currentBody && currentBody.trim() !== '') {
         prompt += `CURRENT PR DESCRIPTION:
+\`\`\`
 ${currentBody}
+\`\`\`
 
 `;
     }
 
     if (prTemplate) {
         prompt += `PR TEMPLATE TO FILL:
+\`\`\`
 ${prTemplate}
+\`\`\`
 
 `;
     }
 
     if (customPrompt) {
         prompt += `CUSTOM INSTRUCTIONS:
+\`\`\`
 ${customPrompt}
+\`\`\`
 
 `;
     }
@@ -388,7 +396,7 @@ ${customPrompt}
         prExamples.forEach((example, index) => {
             prompt += `Example ${index + 1}:\n`;
             prompt += `Title: ${example.title}\n`;
-            prompt += `Body: ${example.body}\n\n`;
+            prompt += `\`\`\`\nBody: ${example.body}\n\`\`\`\n\n`;
         });
     }
 
