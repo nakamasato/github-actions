@@ -1,0 +1,24 @@
+name: Set image tag
+description: |
+  Set image tag based on GitHub event type. e.g. pr: 'pr-123', push: 'main-b380639', release: '1.2.0'
+  You can get the output tag by 'steps.set-image-id.outputs.tag'
+outputs:
+  tag:
+    description: tag name
+    value: ${{ steps.set-tag.outputs.IMAGE_TAG }}
+runs:
+  using: composite
+  steps:
+    - name: Set tag
+      id: set-tag
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" = 'pull_request' ]]; then
+          echo "IMAGE_TAG=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+        elif [ "${{ github.event_name }}" == 'release' ]; then
+          echo "IMAGE_TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+        elif [ "${{ github.event_name }}" == 'push' ]; then
+          echo "IMAGE_TAG=${{ github.ref_name }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        else
+          echo "IMAGE_TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+        fi

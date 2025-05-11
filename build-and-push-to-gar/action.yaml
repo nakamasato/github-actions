@@ -6,13 +6,6 @@ inputs:
     description: GCP region
     required: false
     default: asia-northeast1
-  verbosity:
-    description: "Cloud Run deploy command verbosity (possible values: debug, info, warning, error, critical, none)"
-    required: false
-    default: warning
-  service:
-    description: Cloud Run service name
-    required: true
   repository:
     description: GCP Artifact Registry repository
     required: false
@@ -32,7 +25,7 @@ inputs:
     required: true
   dockerfile:
     description: "if you provide Dockerfile path, build with build-push-action. otherwise use buildpacks"
-    default: ''
+    default: 'Dockerfile'
     required: false
   context:
     description: "docker context for build-push-action"
@@ -48,12 +41,20 @@ inputs:
     required: false
 
 outputs:
-  url:
-    description: CloudRun URL
-    value: ${{ steps.get-cloudrun-url.outputs.URL }}
+  imageid:
+    description: image name
+    value: ${{ steps.build-push-action.outputs.imageid }}
+  digest:
+    description: image digest
+    value: ${{ steps.build-push-action.outputs.digest }}
+  metadata:
+    description: image metadata
+    value: ${{ steps.build-push-action.outputs.metadata }}
+  full_image_name:
+    value: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}
 
-name: Deploy CloudRun
-description: Deploy CloudRun
+name: Build and push to Google Artifact Registry
+description: Build and push to Google Artifact Registry
 runs:
   using: composite
   steps:
@@ -76,14 +77,12 @@ runs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Set up Docker Buildx
-      if: inputs.dockerfile != ''
       uses: docker/setup-buildx-action@v3
       with:
         driver: ${{ inputs.driver }}
 
     - name: Cache Docker layers
       uses: actions/cache@v4
-      if: inputs.dockerfile != ''
       with:
         path: /tmp/.buildx-cache
         key: ${{ runner.os }}-buildx-${{ inputs.service }}-${{ github.sha }}
@@ -91,7 +90,7 @@ runs:
           ${{ runner.os }}-buildx-${{ inputs.service }}-
 
     - name: Build and push image
-      if: inputs.dockerfile != ''
+      id: build-push-action
       uses: docker/build-push-action@v5
       with:
         context: ${{ inputs.context }}
@@ -104,41 +103,8 @@ runs:
         build-args: ${{ inputs.build-args }}
 
     - name: Move cache
-      if: inputs.dockerfile != ''
       shell: bash
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
         ls /tmp/.buildx-cache
-
-    # Buildpack is slow https://github.com/buildpacks/pack
-    - name: Install Pack CLI
-      if: inputs.dockerfile == ''
-      uses: buildpacks/github-actions/setup-pack@v5.7.4
-
-    - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
-      if: inputs.dockerfile == ''
-      shell: bash
-      run: |
-        pack build "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
-            --tag "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:latest" \
-            --path . \
-            --builder heroku/builder:22 \
-            --cache-image "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}-cache:latest" \
-            --publish
-
-    - name: Deploy CloudRun
-      shell: bash
-      run: |
-        gcloud run deploy ${{ inputs.service }} \
-            --image "${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}" \
-            --project "${{ inputs.project }}" \
-            --region "${{ inputs.region }}" \
-            --verbosity "${{ inputs.verbosity }}"
-
-    - name: Get CloudRun URL
-      shell: bash
-      id: get-cloudrun-url
-      run: |
-        set -o pipefail
-        echo "URL=$(gcloud run services describe ${{ inputs.service }} --project "${{ inputs.project }}" --region "${{ inputs.region }}" --format json | jq -r .status.url)" >> "$GITHUB_OUTPUT"

@@ -85,6 +85,7 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Plan
+        if: github.event_name != 'push' || github.ref_name != 'main'
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
         run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
