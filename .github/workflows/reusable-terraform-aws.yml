@@ -23,6 +23,7 @@ concurrency:
 jobs:
   terraform:
     permissions:
+      issues: write # allow to create repo label
       contents: read
       id-token: write
       pull-requests: write
