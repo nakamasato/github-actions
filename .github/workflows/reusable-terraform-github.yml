@@ -9,7 +9,7 @@ on:
       project:
         type: string
         required: false
-        default: "default"
+        default: "github"
       # GCP config: currently only support GCS backend
       workload_identity_provider:
         type: string
@@ -103,5 +103,7 @@ jobs:
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref_name == 'main'
         env:
-          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+          # https://github.com/suzuki-shunsuke/tfcmt/blob/6cb66ca833829e713563b928f0b99f1401dd6677/pkg/notifier/github/client.go#L71-L79
+          TFCMT_GITHUB_TOKEN: ${{ secrets.github_token }} # For tfcmt (permissions are set above)
+          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }} # For github provider (permissions are set for the GitHub app)
         run: tfcmt -var "target:${{ inputs.project }}" apply -- terraform apply -no-color -auto-approve -input=false
