@@ -97,11 +97,11 @@ jobs:
       - name: Terraform Plan
         if: github.event_name != 'push' || github.ref_name != 'main'
         env:
-          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
 
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref_name == 'main'
         env:
-          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: tfcmt -var "target:${{ inputs.project }}" apply -- terraform apply -no-color -auto-approve -input=false
