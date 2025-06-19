@@ -35,7 +35,6 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-      security-events: read
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -98,13 +97,11 @@ jobs:
       - name: Terraform Plan
         if: github.event_name != 'push' || github.ref_name != 'main'
         env:
-          GH_TOKEN: ${{ steps.github-app-token.outputs.token }}
-        run: |
-          gh api repos/nakamasato/fastapi-sample/vulnerability-alerts --include
-          #tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
+          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+        run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
 
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref_name == 'main'
         env:
-          GH_TOKEN: ${{ steps.github-app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
         run: tfcmt -var "target:${{ inputs.project }}" apply -- terraform apply -no-color -auto-approve -input=false
