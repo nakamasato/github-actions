@@ -43,7 +43,7 @@ jobs:
         run: aqua i
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2.0.0
+        uses: aws-actions/configure-aws-credentials@v2.2.0
         with:
           role-to-assume: ${{ inputs.iam_role }}
           aws-region: ${{ inputs.region }}
