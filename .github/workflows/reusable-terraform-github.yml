@@ -1,0 +1,107 @@
+name: terraform-github
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        type: string
+        required: false
+        default: "."
+      project:
+        type: string
+        required: false
+        default: "default"
+      # GCP config: currently only support GCS backend
+      workload_identity_provider:
+        type: string
+        required: false
+      service_account:
+        type: string
+        required: false
+    secrets:
+      # GitHub App
+      gh_app_id:
+        required: true
+      gh_private_key:
+        required: true
+
+concurrency:
+  group: terraform-github-${{ inputs.project }}
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    permissions:
+      issues: write # allow to create repo label
+      contents: read
+      id-token: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate GitHub App Token
+        id: github-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.gh_app_id }}
+          private-key: ${{ secrets.gh_private_key }}
+          owner: ${{ github.repository_owner }}
+
+      - name: install aqua
+        uses: aquaproj/aqua-installer@v4.0.0
+        with:
+          aqua_version: v2.51.2
+
+      - name: install tfcmt via aqua
+        run: |
+          if [ -f aqua.yaml ];then
+            aqua i
+          else
+            aqua g -i suzuki-shunsuke/tfcmt
+          fi
+
+      # For GCS bucket backend
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v2
+        with:
+          create_credentials_file: 'true'
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+
+      - name: set-tf-version
+        id: set-tf-version
+        working-directory: .
+        run: |
+          echo "terraform_version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ steps.set-tf-version.outputs.terraform_version }}
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        if: github.event_name != 'push' || github.ref_name != 'main'
+        env:
+          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+        run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        env:
+          GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }}
+        run: tfcmt -var "target:${{ inputs.project }}" apply -- terraform apply -no-color -auto-approve -input=false
