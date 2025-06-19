@@ -103,3 +103,35 @@ jobs:
       region: ap-northeast-1
       identifier: aws-naka
 ```
+
+### GitHub
+
+```yaml
+name: github
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  terraform:
+    uses: nakamasato/github-actions/.github/workflows/reusable-terraform-github.yml@main
+    with:
+      working_directory: <dir>
+      project: <project name>
+      workload_identity_provider: projects/<project id>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+      service_account: <sa name>@<project name>.iam.gserviceaccount.com
+    secrets:
+      gh_app_id: ${{ secrets.GH_APP_ID }}
+      gh_private_key: ${{ secrets.GH_PRIVATE_KEY }}
+```
