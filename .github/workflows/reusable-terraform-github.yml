@@ -9,7 +9,7 @@ on:
       project:
         type: string
         required: false
-        default: "default"
+        default: "github"
       # GCP config: currently only support GCS backend
       workload_identity_provider:
         type: string
