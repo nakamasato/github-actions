@@ -92,7 +92,7 @@ runs:
 
     - name: Build and push image
       if: inputs.dockerfile != ''
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
