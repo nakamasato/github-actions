@@ -61,6 +61,7 @@ jobs:
 
       - name: set-tf-version
         id: set-tf-version
+        working-directory: .
         run: |
           version_file="${{ inputs.terraform_version_file }}"
           if [ -f "$version_file" ]; then
