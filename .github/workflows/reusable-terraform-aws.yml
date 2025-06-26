@@ -15,9 +15,13 @@ on:
       identifier:
         type: string
         required: true
+      terraform_version_file:
+        type: string
+        required: false
+        default: ".terraform-version" # use 'latest' if not exists
 
 concurrency:
-  group: ${{ inputs.identifier }}
+  group: ${{ github.workflow }}-${{ inputs.identifier }}
   cancel-in-progress: false
 
 jobs:
@@ -50,8 +54,15 @@ jobs:
 
       - name: set-tf-version
         id: set-tf-version
+        working-directory: .
         run: |
-          echo "terraform_version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+          version_file="${{ inputs.terraform_version_file }}"
+          if [ -f "$version_file" ]; then
+            version=$(cat "$version_file")
+          else
+            version="latest"
+          fi
+          echo "terraform_version=$version" >> $GITHUB_OUTPUT
 
       - uses: hashicorp/setup-terraform@v3
         with:
