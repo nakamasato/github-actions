@@ -45,12 +45,11 @@ jobs:
 
       - name: install tfcmt via aqua
         run: |
-          if [ -f aqua.yaml ];then
-            aqua i
-          else
+          if [ ! -f aqua.yaml ];then
             aqua init
             aqua g -i suzuki-shunsuke/tfcmt
           fi
+          aqua i
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
