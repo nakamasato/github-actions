@@ -64,7 +64,7 @@ jobs:
           if [ -f aqua.yaml ];then
             aqua i
           else
-            aqua g -i suzuki-shunsuke/tfcmt
+            aqua i suzuki-shunsuke/tfcmt
           fi
 
       # For GCS bucket backend
