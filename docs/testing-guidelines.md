@@ -88,6 +88,11 @@ def test_action_success(mock_github_context):
 
 ## Testing Tools
 
+### Workflow Validation
+- **actionlint**: Static analysis for GitHub Actions workflows
+- Catches syntax errors, missing inputs, and workflow issues
+- Integrates with CI/CD for automatic validation
+
 ### JavaScript
 - **Jest**: Primary testing framework
 - **nock**: HTTP request mocking

@@ -8,3 +8,22 @@ repos:
       args: [--fix]
     # Run the formatter.
     - id: ruff-format
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+      exclude: '\.json$'
+    - id: check-yaml
+    - id: check-added-large-files
+- repo: https://github.com/rhysd/actionlint
+  rev: v1.7.7
+  hooks:
+    - id: actionlint
+      name: Lint GitHub Actions workflow files
+      description: Runs actionlint to lint GitHub Actions workflow files
+      language: golang
+      types: ["yaml"]
+      files: ^\.github/workflows/
+      entry: actionlint
+      minimum_pre_commit_version: 3.0.0

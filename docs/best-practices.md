@@ -138,6 +138,12 @@ def validate_path(path):
 
 ## Code Quality
 
+### Workflow Validation
+- **actionlint**: Static analysis for GitHub Actions workflows
+- Validates workflow syntax and logic
+- Catches common mistakes and suggests improvements
+- Runs automatically on workflow file changes
+
 ### Linting and Formatting
 
 #### JavaScript
