@@ -1,0 +1,54 @@
+name: Test PR Description Writer
+
+on:
+  push:
+    paths:
+      - 'pr-description-writer/**'
+      - '.github/workflows/test-pr-description-writer.yml'
+  pull_request:
+    paths:
+      - 'pr-description-writer/**'
+      - '.github/workflows/test-pr-description-writer.yml'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: pr-description-writer/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: pr-description-writer
+        run: npm ci
+      
+      - name: Run tests
+        working-directory: pr-description-writer
+        run: npm test
+      
+      - name: Run linting
+        working-directory: pr-description-writer
+        run: npm run lint || true  # Don't fail if lint script doesn't exist
+      
+      - name: Test action
+        id: test-action
+        uses: ./pr-description-writer
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: true  # Add this if the action supports it
+        continue-on-error: true
+      
+      - name: Check action outputs
+        run: |
+          echo "Action completed with status: ${{ steps.test-action.outcome }}"

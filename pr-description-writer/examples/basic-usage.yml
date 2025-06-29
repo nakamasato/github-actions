@@ -1,0 +1,22 @@
+name: PR Description Writer - Basic Usage
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  generate-description:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate PR description
+        uses: ./pr-description-writer
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

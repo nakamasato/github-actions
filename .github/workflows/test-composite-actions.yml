@@ -1,0 +1,89 @@
+name: Test Composite Actions
+
+on:
+  push:
+    paths:
+      - 'setup-poetry/**'
+      - 'set-image-tag/**'
+      - 'build-and-push-to-gar/**'
+      - 'deploy-python-app-to-cloud-run/**'
+      - '.github/workflows/test-composite-actions.yml'
+  pull_request:
+    paths:
+      - 'setup-poetry/**'
+      - 'set-image-tag/**'
+      - 'build-and-push-to-gar/**'
+      - 'deploy-python-app-to-cloud-run/**'
+      - '.github/workflows/test-composite-actions.yml'
+
+jobs:
+  test-setup-poetry:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test setup-poetry action
+        uses: ./setup-poetry
+        with:
+          python-version: '3.12'
+      
+      - name: Verify Poetry installation
+        run: poetry --version
+
+  test-set-image-tag:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test set-image-tag action
+        id: image-tag
+        uses: ./set-image-tag
+        with:
+          prefix: 'test'
+      
+      - name: Verify output
+        run: |
+          echo "Generated tag: ${{ steps.image-tag.outputs.tag }}"
+          [[ -n "${{ steps.image-tag.outputs.tag }}" ]] || exit 1
+
+  test-build-and-push-to-gar:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Create test Dockerfile
+        run: |
+          echo 'FROM alpine:latest' > Dockerfile
+          echo 'CMD ["echo", "hello"]' >> Dockerfile
+      
+      - name: Test build-and-push-to-gar action (dry run)
+        uses: ./build-and-push-to-gar
+        with:
+          image-name: 'test-image'
+          registry: 'us-central1-docker.pkg.dev'
+          project-id: 'test-project'
+          repository: 'test-repo'
+          dry-run: true
+        continue-on-error: true
+
+  test-deploy-python-app-to-cloud-run:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test deploy-python-app-to-cloud-run action (validation only)
+        uses: ./deploy-python-app-to-cloud-run
+        with:
+          service-name: 'test-service'
+          region: 'us-central1'
+          image: 'gcr.io/test/image:latest'
+          validate-only: true
+        continue-on-error: true

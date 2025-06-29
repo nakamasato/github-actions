@@ -1,0 +1,53 @@
+name: 'Action Name'
+description: 'A brief description of what this action does'
+author: 'Your Name'
+
+inputs:
+  example-input:
+    description: 'Description of this input'
+    required: true
+    default: 'default-value'
+  
+  github-token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  result:
+    description: 'Description of the output'
+  status:
+    description: 'Status of the operation'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        poetry install --no-interaction --no-ansi
+    
+    - name: Run action
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_EXAMPLE_INPUT: ${{ inputs.example-input }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        poetry run python src/main.py
+
+branding:
+  icon: 'code'
+  color: 'yellow'
