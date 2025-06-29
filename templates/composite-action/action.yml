@@ -1,0 +1,52 @@
+name: 'Action Name'
+description: 'A brief description of what this action does'
+author: 'Your Name'
+
+inputs:
+  example-input:
+    description: 'Description of this input'
+    required: true
+    default: 'default-value'
+  
+  optional-input:
+    description: 'An optional input parameter'
+    required: false
+
+outputs:
+  result:
+    description: 'Description of the output'
+    value: ${{ steps.main.outputs.result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.example-input }}" ]]; then
+          echo "::error::example-input is required"
+          exit 1
+        fi
+
+    - name: Main logic
+      id: main
+      shell: bash
+      run: |
+        echo "Processing with input: ${{ inputs.example-input }}"
+        
+        # Your main logic here
+        result="processed-value"
+        
+        # Set output
+        echo "result=${result}" >> $GITHUB_OUTPUT
+
+    - name: Summary
+      shell: bash
+      run: |
+        echo "### Action Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- Input: ${{ inputs.example-input }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Result: ${{ steps.main.outputs.result }}" >> $GITHUB_STEP_SUMMARY
+
+branding:
+  icon: 'activity'
+  color: 'blue'

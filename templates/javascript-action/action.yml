@@ -1,0 +1,28 @@
+name: 'Action Name'
+description: 'A brief description of what this action does'
+author: 'Your Name'
+
+inputs:
+  example-input:
+    description: 'Description of this input'
+    required: true
+    default: 'default-value'
+  
+  github-token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  result:
+    description: 'Description of the output'
+  status:
+    description: 'Status of the operation'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'package'
+  color: 'orange'
