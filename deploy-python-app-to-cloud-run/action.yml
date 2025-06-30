@@ -114,7 +114,7 @@ runs:
     # Buildpack is slow https://github.com/buildpacks/pack
     - name: Install Pack CLI
       if: inputs.dockerfile == ''
-      uses: buildpacks/github-actions/setup-pack@v5.9.1
+      uses: buildpacks/github-actions/setup-pack@v5.9.2
 
     - name: Build app with pack CLI using Buildpack Cache image (see https://buildpacks.io/docs/app-developer-guide/using-cache-image/) & publish to Docker Hub
       if: inputs.dockerfile == ''
