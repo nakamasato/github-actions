@@ -2,6 +2,10 @@ name: terraform-github
 on:
   workflow_call:
     inputs:
+      enable_aqua_cache:
+        type: boolean
+        required: false
+        default: false
       working_directory:
         type: string
         required: false
@@ -53,6 +57,14 @@ jobs:
           app-id: ${{ secrets.gh_app_id }}
           private-key: ${{ secrets.gh_private_key }}
           owner: ${{ github.repository_owner }}
+
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        if: inputs.enable_aqua_cache
+        with:
+          path: ~/.local/share/aquaproj-aqua
+          key: v2-aqua-installer-${{runner.os}}-${{runner.arch}}-${{hashFiles('aqua.yaml')}}
+          restore-keys: |
+            v2-aqua-installer-${{runner.os}}-${{runner.arch}}-
 
       - name: install aqua
         uses: aquaproj/aqua-installer@d1fe50798dbadd4eb5b98957290ca175f6b4870f # v4.0.2
