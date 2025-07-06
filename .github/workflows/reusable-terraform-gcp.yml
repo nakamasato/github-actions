@@ -9,6 +9,7 @@ on:
       enable_aqua_cache:
         type: boolean
         required: false
+        default: false
       project:
         type: string
         required: true
