@@ -23,6 +23,15 @@ on:
       service_account:
         type: string
         required: true
+      runs-on: # https://zenn.dev/shunsuke_suzuki/scraps/0407b843e58451
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+        description: |
+          JSON string for runs-on.
+          e.g.
+          runs-on: '"macos-latest"'
+          runs-on: '["foo"]'
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.project }}
@@ -35,7 +44,7 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: ${{fromJSON(inputs.runs-on)}}
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
