@@ -161,6 +161,14 @@ async function run() {
         core.info(`Current PR title: "${currentTitle}"`);
         core.info(`Current PR description length: ${currentBody.length} characters`);
 
+        // Check if PR description is empty - if not, skip processing
+        if (currentBody.trim() !== '') {
+            core.info('PR description is not empty. Skipping PR description generation.');
+            return;
+        }
+        
+        core.info('PR description is empty. Proceeding with generation.');
+
         // Fetch changed files in the PR
         const { data: changedFiles } = await octokit.rest.pulls.listFiles({
             owner,
