@@ -167,6 +167,14 @@ async function run() {
         core.info(`Current PR title: "${currentTitle}"`);
         core.info(`Current PR description length: ${currentBody.length} characters`);
 
+        // Check if PR description is empty - if not, skip processing
+        if (currentBody.trim() !== '') {
+            core.info('PR description is not empty. Skipping PR description generation.');
+            return;
+        }
+        
+        core.info('PR description is empty. Proceeding with generation.');
+
         // Fetch changed files in the PR
         const { data: changedFiles } = await octokit.rest.pulls.listFiles({
             owner,
@@ -2429,6 +2437,7 @@ class Context {
         this.action = process.env.GITHUB_ACTION;
         this.actor = process.env.GITHUB_ACTOR;
         this.job = process.env.GITHUB_JOB;
+        this.runAttempt = parseInt(process.env.GITHUB_RUN_ATTEMPT, 10);
         this.runNumber = parseInt(process.env.GITHUB_RUN_NUMBER, 10);
         this.runId = parseInt(process.env.GITHUB_RUN_ID, 10);
         this.apiUrl = (_a = process.env.GITHUB_API_URL) !== null && _a !== void 0 ? _a : `https://api.github.com`;
@@ -36957,7 +36966,7 @@ module.exports = parseParams
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
-/*! Axios v1.9.0 Copyright (c) 2025 Matt Zabriskie and contributors */
+/*! Axios v1.10.0 Copyright (c) 2025 Matt Zabriskie and contributors */
 
 
 const FormData$1 = __nccwpck_require__(6454);
@@ -37943,6 +37952,10 @@ function toFormData(obj, formData, options) {
 
     if (utils$1.isDate(value)) {
       return value.toISOString();
+    }
+
+    if (utils$1.isBoolean(value)) {
+      return value.toString();
     }
 
     if (!useBlob && utils$1.isBlob(value)) {
@@ -39061,7 +39074,7 @@ function buildFullPath(baseURL, requestedURL, allowAbsoluteUrls) {
   return requestedURL;
 }
 
-const VERSION = "1.9.0";
+const VERSION = "1.10.0";
 
 function parseProtocol(url) {
   const match = /^([-+\w]{1,25})(:?\/\/|:)/.exec(url);
@@ -40898,7 +40911,7 @@ const fetchAdapter = isFetchSupported && (async (config) => {
       credentials: isCredentialsSupported ? withCredentials : undefined
     });
 
-    let response = await fetch(request);
+    let response = await fetch(request, fetchOptions);
 
     const isStreamResponse = supportsResponseStream && (responseType === 'stream' || responseType === 'response');
 
