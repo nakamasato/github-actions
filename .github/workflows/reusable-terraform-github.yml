@@ -72,6 +72,8 @@ jobs:
           aqua_version: v2.51.2
 
       - name: install tfcmt via aqua
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
         run: |
           if [ ! -f aqua.yaml ];then
             aqua init
