@@ -23,6 +23,10 @@ on:
       service_account:
         type: string
         required: true
+    outputs:
+      tfplan_artifact_name:
+        description: "Name of the artifact containing terraform plan JSON"
+        value: ${{ jobs.terraform.outputs.tfplan_artifact_name }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.project }}
@@ -36,6 +40,8 @@ jobs:
       id-token: write
       pull-requests: write
     runs-on: ubuntu-latest
+    outputs:
+      tfplan_artifact_name: ${{ steps.plan.outputs.tfplan_artifact_name }}
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
@@ -101,10 +107,23 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Plan
+        id: plan
         if: github.event_name != 'push' || github.ref_name != 'main'
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
-        run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
+        run: |
+          tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color -out=tfplan.binary
+          terraform show -json tfplan.binary > tfplan.json
+          artifact_name="tfplan-${{ github.workflow }}-${{ inputs.project }}-${{ github.run_id }}"
+          echo "tfplan_artifact_name=$artifact_name" >> $GITHUB_OUTPUT
+
+      - name: Upload Terraform Plan Artifact
+        if: github.event_name != 'push' || github.ref_name != 'main'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: tfplan-${{ github.workflow }}-${{ inputs.project }}-${{ github.run_id }}
+          path: ${{ inputs.working_directory }}/tfplan.json
+          retention-days: 7
 
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref_name == 'main'
