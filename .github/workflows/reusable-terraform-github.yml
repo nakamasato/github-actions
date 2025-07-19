@@ -25,6 +25,10 @@ on:
         type: string
         required: false
         default: ".terraform-version" # use 'latest' if not exists
+    outputs:
+      tfplan_artifact_name:
+        description: "Name of the artifact containing terraform plan JSON"
+        value: ${{ jobs.terraform.outputs.tfplan_artifact_name }}
     secrets:
       # GitHub App
       gh_app_id:
@@ -44,6 +48,8 @@ jobs:
       id-token: write
       pull-requests: write
     runs-on: ubuntu-latest
+    outputs:
+      tfplan_artifact_name: ${{ steps.plan.outputs.tfplan_artifact_name }}
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
@@ -119,12 +125,25 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Plan
+        id: plan
         if: github.event_name != 'push' || github.ref_name != 'main'
         env:
           # https://github.com/suzuki-shunsuke/tfcmt/blob/6cb66ca833829e713563b928f0b99f1401dd6677/pkg/notifier/github/client.go#L71-L79
           TFCMT_GITHUB_TOKEN: ${{ secrets.github_token }} # For tfcmt (permissions are set above)
           GITHUB_TOKEN: ${{ steps.github-app-token.outputs.token }} # For github provider (permissions are set for the GitHub app)
-        run: tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color
+        run: |
+          tfcmt -var "target:${{ inputs.project }}" plan -patch -- terraform plan -no-color -out=tfplan.binary
+          terraform show -json tfplan.binary > tfplan.json
+          artifact_name="tfplan-${{ github.workflow }}-${{ inputs.project }}-${{ github.run_id }}"
+          echo "tfplan_artifact_name=$artifact_name" >> $GITHUB_OUTPUT
+
+      - name: Upload Terraform Plan Artifact
+        if: github.event_name != 'push' || github.ref_name != 'main'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: tfplan-${{ github.workflow }}-${{ inputs.project }}-${{ github.run_id }}
+          path: ${{ inputs.working_directory }}/tfplan.json
+          retention-days: 7
 
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref_name == 'main'
