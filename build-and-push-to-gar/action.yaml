@@ -47,6 +47,25 @@ inputs:
     description: enable registry cache fallback in addition to gha cache
     default: 'false'
     required: false
+  cache_strategy:
+    description: |
+      Docker build cache strategy. Options:
+      - auto: Auto-detect based on runner type (recommended)
+      - gha: GitHub Actions cache (fast, 10GB limit, best for GitHub-hosted)
+      - local: Local filesystem cache (best for self-hosted runners)
+      - registry: GAR registry cache (persistent, good for multi-runner)
+      - hybrid: GHA + Registry cache (balanced performance/persistence)
+      - triple: Local + GHA + Registry (maximum performance, high-frequency builds)
+    default: 'auto'
+    required: false
+  local_cache_path:
+    description: 'Local cache directory path for self-hosted runners and triple strategy'
+    default: '/tmp/.buildx-cache'
+    required: false
+  registry_cache_tag:
+    description: 'Tag name for registry cache image in GAR (appended to image name)'
+    default: 'buildcache'
+    required: false
 
 outputs:
   imageid:
@@ -62,7 +81,10 @@ outputs:
     value: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}
 
 name: Build and push to Google Artifact Registry
-description: Build and push to Google Artifact Registry
+description: |
+  Build and push Docker images to Google Artifact Registry with intelligent caching.
+  Supports multiple cache strategies optimized for different runner types and use cases.
+  Features 2025-compatible GitHub Actions Cache API v2 and auto-detection of optimal cache strategy.
 runs:
   using: composite
   steps:
@@ -84,6 +106,101 @@ runs:
         username: oauth2accesstoken
         password: ${{ steps.auth.outputs.access_token }}
 
+    - name: Detect runner type and set cache strategy
+      id: cache-config
+      shell: bash
+      run: |
+        # Detect runner type
+        if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ] || [[ "${{ runner.name }}" == "GitHub Actions"* ]]; then
+          echo "runner_type=github-hosted" >> $GITHUB_OUTPUT
+          RUNNER_TYPE="github-hosted"
+        else
+          echo "runner_type=self-hosted" >> $GITHUB_OUTPUT  
+          RUNNER_TYPE="self-hosted"
+        fi
+        
+        # Set cache strategy based on input or auto-detection
+        STRATEGY="${{ inputs.cache_strategy }}"
+        if [ "$STRATEGY" = "auto" ]; then
+          if [ "$RUNNER_TYPE" = "github-hosted" ]; then
+            if [ "${{ inputs.use_registry_cache }}" = "true" ]; then
+              STRATEGY="hybrid"
+            else
+              STRATEGY="gha"
+            fi
+          else
+            STRATEGY="local"
+          fi
+        fi
+        echo "selected_strategy=$STRATEGY" >> $GITHUB_OUTPUT
+        
+        # Configure cache parameters
+        SCOPE="${{ inputs.cache_scope || inputs.image }}"
+        REG_REF="${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.registry_cache_tag }}"
+        LOCAL_PATH="${{ inputs.local_cache_path }}"
+        
+        # Set cache configurations based on strategy
+        case "$STRATEGY" in
+          "gha")
+            echo "cache_from=type=gha,scope=$SCOPE" >> $GITHUB_OUTPUT
+            echo "cache_to=type=gha,mode=max,scope=$SCOPE" >> $GITHUB_OUTPUT
+            ;;
+          "local")
+            echo "cache_from=type=local,src=$LOCAL_PATH" >> $GITHUB_OUTPUT
+            echo "cache_to=type=local,dest=$LOCAL_PATH,mode=max" >> $GITHUB_OUTPUT
+            ;;
+          "registry")
+            echo "cache_from=type=registry,ref=$REG_REF" >> $GITHUB_OUTPUT
+            echo "cache_to=type=registry,ref=$REG_REF,mode=max" >> $GITHUB_OUTPUT
+            ;;
+          "hybrid")
+            # Multi-line cache configuration for hybrid strategy
+            {
+              echo 'cache_from<<EOF'
+              echo "type=gha,scope=$SCOPE"
+              echo "type=registry,ref=$REG_REF"
+              echo 'EOF'
+              echo 'cache_to<<EOF'
+              echo "type=gha,mode=max,scope=$SCOPE"
+              echo "type=registry,ref=$REG_REF,mode=max"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+            ;;
+          "triple")
+            # Multi-line cache configuration for triple strategy
+            {
+              echo 'cache_from<<EOF'
+              echo "type=local,src=$LOCAL_PATH"
+              echo "type=gha,scope=$SCOPE"
+              echo "type=registry,ref=$REG_REF"
+              echo 'EOF'
+              echo 'cache_to<<EOF'
+              echo "type=local,dest=$LOCAL_PATH,mode=max"
+              echo "type=gha,mode=max,scope=$SCOPE"
+              echo "type=registry,ref=$REG_REF,mode=max"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+            ;;
+        esac
+        
+        echo "✅ Selected cache strategy: $STRATEGY for $RUNNER_TYPE runner"
+
+    - name: Setup local cache directory
+      if: contains(steps.cache-config.outputs.selected_strategy, 'local') || steps.cache-config.outputs.selected_strategy == 'triple'
+      shell: bash
+      run: |
+        mkdir -p ${{ inputs.local_cache_path }}
+        echo "📁 Created local cache directory: ${{ inputs.local_cache_path }}"
+
+    - name: Display cache configuration
+      shell: bash
+      run: |
+        echo "🚀 Cache Configuration Summary:"
+        echo "Runner Type: ${{ steps.cache-config.outputs.runner_type }}"
+        echo "Strategy: ${{ steps.cache-config.outputs.selected_strategy }}"
+        echo "Cache From: ${{ steps.cache-config.outputs.cache_from }}"
+        echo "Cache To: ${{ steps.cache-config.outputs.cache_to }}"
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       with:
@@ -99,11 +216,7 @@ runs:
         push: true
         tags: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}
         platforms: linux/amd64
-        cache-from: |
-          type=gha,scope=${{ inputs.cache_scope || inputs.image }}
-          ${{ inputs.use_registry_cache == 'true' && format('type=registry,ref={0}-docker.pkg.dev/{1}/{2}/{3}:buildcache', inputs.region, inputs.project, inputs.repository, inputs.image) || '' }}
-        cache-to: |
-          type=gha,mode=max,scope=${{ inputs.cache_scope || inputs.image }}
-          ${{ inputs.use_registry_cache == 'true' && format('type=registry,ref={0}-docker.pkg.dev/{1}/{2}/{3}:buildcache,mode=max', inputs.region, inputs.project, inputs.repository, inputs.image) || '' }}
+        cache-from: ${{ steps.cache-config.outputs.cache_from }}
+        cache-to: ${{ steps.cache-config.outputs.cache_to }}
         build-args: ${{ inputs.build-args }}
 
