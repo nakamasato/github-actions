@@ -39,6 +39,14 @@ inputs:
     description: driver for setup-buildx-action
     default: docker-container
     required: false
+  cache_scope:
+    description: cache scope for multiple images (defaults to image name)
+    default: ''
+    required: false
+  use_registry_cache:
+    description: enable registry cache fallback in addition to gha cache
+    default: 'false'
+    required: false
 
 outputs:
   imageid:
@@ -81,13 +89,6 @@ runs:
       with:
         driver: ${{ inputs.driver }}
 
-    - name: Cache Docker layers
-      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ inputs.service }}-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-${{ inputs.service }}-
 
     - name: Build and push image
       id: build-push-action
@@ -98,13 +99,11 @@ runs:
         push: true
         tags: ${{ inputs.region }}-docker.pkg.dev/${{ inputs.project }}/${{ inputs.repository }}/${{ inputs.image }}:${{ inputs.image_tag }}
         platforms: linux/amd64
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+        cache-from: |
+          type=gha,scope=${{ inputs.cache_scope || inputs.image }}
+          ${{ inputs.use_registry_cache == 'true' && format('type=registry,ref={0}-docker.pkg.dev/{1}/{2}/{3}:buildcache', inputs.region, inputs.project, inputs.repository, inputs.image) || '' }}
+        cache-to: |
+          type=gha,mode=max,scope=${{ inputs.cache_scope || inputs.image }}
+          ${{ inputs.use_registry_cache == 'true' && format('type=registry,ref={0}-docker.pkg.dev/{1}/{2}/{3}:buildcache,mode=max', inputs.region, inputs.project, inputs.repository, inputs.image) || '' }}
         build-args: ${{ inputs.build-args }}
 
-    - name: Move cache
-      shell: bash
-      run: |
-        rm -rf /tmp/.buildx-cache
-        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-        ls /tmp/.buildx-cache
