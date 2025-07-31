@@ -29,10 +29,14 @@ jobs:
 | `region` | string | **true** | - | AWS region for operations |
 | `identifier` | string | **true** | - | Unique identifier for concurrency control |
 | `terraform_version_file` | string | false | `".terraform-version"` | File containing Terraform version (uses 'latest' if not found) |
+| `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
+| `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
 
 ## Outputs
 
-This workflow does not produce outputs.
+| Name | Description |
+|------|-------------|
+| `tfplan_artifact_name` | Name of the artifact containing terraform plan JSON |
 
 ## Prerequisites
 
@@ -74,4 +78,6 @@ jobs:
       region: "us-east-1"
       identifier: "my-project"
       enable_aqua_cache: true
+      save_tfplan: true
+      tfplan_retention_days: 3
 ```

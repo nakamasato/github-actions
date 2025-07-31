@@ -29,10 +29,14 @@ jobs:
 | `terraform_version_file` | string | false | `".terraform-version"` | File containing Terraform version (uses 'latest' if not found) |
 | `workload_identity_provider` | string | **true** | - | GCP Workload Identity Provider resource name |
 | `service_account` | string | **true** | - | GCP service account email for authentication |
+| `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
+| `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
 
 ## Outputs
 
-This workflow does not produce outputs.
+| Name | Description |
+|------|-------------|
+| `tfplan_artifact_name` | Name of the artifact containing terraform plan JSON |
 
 ## Prerequisites
 
@@ -74,4 +78,6 @@ jobs:
       workload_identity_provider: "projects/123456789012/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
       service_account: "terraform@my-gcp-project.iam.gserviceaccount.com"
       enable_aqua_cache: true
+      save_tfplan: true
+      tfplan_retention_days: 3
 ```
