@@ -12,5 +12,4 @@
 1. [set-image-tag](set-image-tag) - Set Docker image tag for deployments
 1. [build-and-push-to-gar](build-and-push-to-gar) - Build and push Docker images to Google Artifact Registry
 1. [deploy-python-app-to-cloud-run](deploy-python-app-to-cloud-run) - Deploy Python applications to Google Cloud Run
-1. [llm-pr-reviewer](llm-pr-reviewer) - AI-powered pull request reviewer using LLM
 1. [pr-description-writer](pr-description-writer) - Automatically generate PR descriptions
