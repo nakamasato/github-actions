@@ -8,7 +8,7 @@ Deploy Python app with https://buildpacks.io/ (using `heroku/builder:22`)
 
 You need to create Workload Identity Provider (https://cloud.google.com/iam/docs/workload-identity-federation) and Service Account with sufficient permissions (e.g. `roles/iam.workloadIdentityUser`, `roles/artifactregistry.writer`, `roles/run.developer`).
 
-For more details about setting 
+For more details about setting
 
 ## inputs
 
@@ -126,4 +126,3 @@ jobs:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.SERVICE_ACCOUNT }}
 ```
-

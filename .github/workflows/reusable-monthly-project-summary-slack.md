@@ -58,7 +58,7 @@ jobs:
 | `claude_code_oauth_token` | No* | Claude Code OAuth Token |
 | `anthropic_api_key` | No* | Anthropic API Key |
 
-*`claude_code_oauth_token`または`anthropic_api_key`のどちらか一つが必要  
+*`claude_code_oauth_token`または`anthropic_api_key`のどちらか一つが必要
 *`gh_token`は他のリポジトリにアクセスする場合のみ必要（未指定時は`secrets.GITHUB_TOKEN`を使用）
 
 ## 生成されるサマリー形式

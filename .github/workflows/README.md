@@ -1,6 +1,6 @@
 ## Prerequisite
 
-[aqua](https://aquaproj.github.io/): tool to manage cli 
+[aqua](https://aquaproj.github.io/): tool to manage cli
 
 Install:
 
