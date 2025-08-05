@@ -1,10 +1,10 @@
 # Monthly Project Summary Slack Reusable Workflow
 
-月次プロジェクトサマリーを自動生成し、Slackに投稿する再利用可能なGitHub Actionsワークフローです。Claude CodeとMCP（Slack）を使用して、指定されたリポジトリのPRデータを分析し、読みやすい月次活動報告書を生成します。
+月次プロジェクトサマリーを自動生成し、Slackに投稿する再利用可能なGitHub Actionsワークフローです。Claude CodeとMCP（Slack）を使用して、現在のリポジトリのPRデータを分析し、読みやすい月次活動報告書を生成します。
 
 ## 機能
 
-- 指定した月のマージされたPRを自動取得
+- 現在のリポジトリの指定した月のマージされたPRを自動取得
 - Claude CodeによるPRデータの分析とサマリー生成
 - カテゴリ別の作業内容整理（機能開発、テスト、インフラなど）
 - Slackへの自動投稿（リンク付きPR番号含む）
@@ -27,14 +27,12 @@ jobs:
       contents: read
     uses: nakamasato/github-actions/.github/workflows/reusable-monthly-project-summary-slack.yml@main
     with:
-      repository: owner/repo  # オプション：未指定時は現在のリポジトリ
       yearmonth: 2024-12     # オプション：未指定時は前月
       slack_channel: C1234567890
       timeout_minutes: 10    # オプション：未指定時は5分
     secrets:
       slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
       slack_team_id: ${{ secrets.SLACK_TEAM_ID }}
-      gh_token: ${{ secrets.GH_TOKEN }}  # クロスリポジトリアクセス用（オプション）
       claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}  # どちらか一つが必要
       anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}  # どちらか一つが必要
 ```
@@ -45,7 +43,6 @@ jobs:
 
 | パラメータ | 必須 | 説明 |
 |-----------|------|------|
-| `repository` | No | 対象リポジトリ（owner/repo形式）。未指定時は現在のリポジトリ |
 | `yearmonth` | No | 対象年月（YYYY-MM形式）。未指定時は前月 |
 | `slack_channel` | Yes | Slack投稿先チャンネルID |
 | `timeout_minutes` | No | Claude Code実行のタイムアウト（分）。デフォルト5分 |
@@ -56,12 +53,10 @@ jobs:
 |-------------|------|------|
 | `slack_bot_token` | Yes | Slack Bot Token |
 | `slack_team_id` | Yes | Slack Team ID |
-| `gh_token` | No* | GitHub Token（クロスリポジトリアクセス用） |
 | `claude_code_oauth_token` | No* | Claude Code OAuth Token |
 | `anthropic_api_key` | No* | Anthropic API Key |
 
 *`claude_code_oauth_token`または`anthropic_api_key`のどちらか一つが必要
-*`gh_token`は他のリポジトリにアクセスする場合のみ必要（未指定時は`secrets.GITHUB_TOKEN`を使用）
 
 ## 生成されるサマリー形式
 
@@ -84,9 +79,13 @@ jobs:
 
 ## 必要な権限・設定
 
-1. **GitHub Token**: リポジトリの読み取り権限（他のリポジトリにアクセスする場合のみ`gh_token`が必要）
+1. **GitHub Token**: リポジトリの読み取り権限（同一リポジトリのみ対応）
 2. **Slack Bot Token**: チャンネルへの投稿権限
 3. **Claude Code**: APIアクセス権限（`claude_code_oauth_token`または`anthropic_api_key`のいずれか一つが必要）
+
+## 制限事項
+
+このreusable workflowは**同一リポジトリのみ**対応しています。他のorganizationのリポジトリにアクセスする場合は、[composite action版](../../monthly-project-summary-slack/README.md)をご利用ください。
 
 ## タイムアウト
 
