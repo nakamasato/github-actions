@@ -1,4 +1,4 @@
-name: claude-code-project-smmary
+name: monthly-project-summary-slack
 
 on:
   workflow_call:
@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       timeout_minutes:
-        description: 'Timeout in minutes for Claude Code execution'
+        description: 'Timeout in minutes for AI execution'
         required: false
         type: number
         default: 5
