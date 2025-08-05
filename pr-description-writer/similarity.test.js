@@ -42,7 +42,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
 
         // Check result
         expect(similarity).toBe(0.85);
-        
+
         // Verify that axios was called correctly
         expect(axios.post).toHaveBeenCalledWith(
             'https://api.openai.com/v1/chat/completions',
@@ -82,7 +82,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
 
         // Check result
         expect(similarity).toBe(0.72);
-        
+
         // Verify that axios was called correctly
         expect(axios.post).toHaveBeenCalledWith(
             'https://api.anthropic.com/v1/messages',
@@ -193,7 +193,7 @@ describe('calculateLLMSimilarity (actual implementation)', () => {
             'fake_api_key',
             'model'
         );
-        
+
         // The function catches the error and returns 0
         expect(similarity).toBe(0);
         expect(core.warning).toHaveBeenCalled();

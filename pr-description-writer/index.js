@@ -166,7 +166,7 @@ async function run() {
             core.info('PR description is not empty. Skipping PR description generation.');
             return;
         }
-        
+
         core.info('PR description is empty. Proceeding with generation.');
 
         // Fetch changed files in the PR

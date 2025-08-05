@@ -87,43 +87,43 @@ DESCRIPTION:
 // Mock implementation of calculateLLMSimilarity for testing
 async function calculateLLMSimilarity(existingTitle, existingBody, newTitle, newBody, llmProvider, apiKey, model) {
     // For test purposes, implement a simple rule-based similarity metric
-    
+
     // If both titles and descriptions are exactly the same, return 1.0 (maximum similarity)
     if (existingTitle === newTitle && existingBody === newBody) {
         return 1.0;
     }
-    
+
     // If titles are the same but bodies are different, return 0.7
     if (existingTitle === newTitle && existingBody !== newBody) {
         return 0.7;
     }
-    
+
     // If bodies are the same but titles are different, return 0.6
     if (existingTitle !== newTitle && existingBody === newBody) {
         return 0.6;
     }
-    
+
     // If both are different but have some content, do a basic word-based similarity
     if (existingTitle && existingBody && newTitle && newBody) {
         // Very basic similarity calculation for testing
         // Count how many words are shared between titles and descriptions
         const existingWords = (existingTitle + " " + existingBody).toLowerCase().split(/\s+/);
         const newWords = (newTitle + " " + newBody).toLowerCase().split(/\s+/);
-        
+
         const existingSet = new Set(existingWords);
         const newSet = new Set(newWords);
-        
+
         let commonCount = 0;
         for (const word of existingSet) {
             if (newSet.has(word)) {
                 commonCount++;
             }
         }
-        
+
         // Basic similarity formula
         return commonCount / Math.max(existingSet.size, newSet.size);
     }
-    
+
     // Default: low similarity (different content)
     return 0.2;
 }
