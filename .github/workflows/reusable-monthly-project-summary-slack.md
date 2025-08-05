@@ -25,7 +25,7 @@ jobs:
   generate-summary:
     permissions:
       contents: read
-    uses: nakamasato/github-actions/.github/workflows/reusable-monthly-project-summary-slack.yml@main
+    uses: nakamasato/github-actions/.github/workflows/reusable-monthly-project-summary-slack.yml@1.13.0
     with:
       repository: owner/repo  # オプション：未指定時は現在のリポジトリ
       yearmonth: 2024-12     # オプション：未指定時は前月
