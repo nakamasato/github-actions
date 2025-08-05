@@ -1,0 +1,252 @@
+name: claude-code-project-smmary
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        description: 'Target repository (owner/repo format). If not specified, uses current repository'
+        required: false
+        type: string
+      yearmonth:
+        description: 'Target year-month (YYYY-MM format). If not specified, uses last month'
+        required: false
+        type: string
+      slack_channel:
+        description: 'Slack channel ID for posting results'
+        required: true
+        type: string
+      timeout_minutes:
+        description: 'Timeout in minutes for Claude Code execution'
+        required: false
+        type: number
+        default: 5
+    secrets:
+      slack_bot_token:
+        description: 'Slack Bot Token'
+        required: true
+      slack_team_id:
+        description: 'Slack Team ID'
+        required: true
+      github_token:
+        description: 'GitHub Token'
+        required: true
+      claude_code_oauth_token:
+        description: 'Claude Code OAuth Token'
+        required: false
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: false
+
+jobs:
+  generate-monthly-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set parameters
+        id: set-params
+        run: |
+          # リポジトリの設定
+          if [ -n "${{ inputs.repository }}" ]; then
+            TARGET_REPO="${{ inputs.repository }}"
+          else
+            TARGET_REPO="${{ github.repository }}"
+          fi
+
+          # 年月の設定
+          if [ -n "${{ inputs.yearmonth }}" ]; then
+            TARGET_MONTH="${{ inputs.yearmonth }}"
+          else
+            # 前月を取得
+            TARGET_MONTH=$(date -d "last month" +%Y-%m)
+          fi
+
+          echo "TARGET_REPO=${TARGET_REPO}" >> "$GITHUB_OUTPUT"
+          echo "TARGET_MONTH=${TARGET_MONTH}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Job Summary
+        run: |
+          {
+            echo "# Monthly Project Summary Job"
+            echo ""
+            echo "## Parameters"
+            echo ""
+            echo "| Parameter | Value |"
+            echo "|-----------|-------|"
+            echo "| **Repository** | \`${{ steps.set-params.outputs.TARGET_REPO }}\` |"
+            echo "| **Target Month** | \`${{ steps.set-params.outputs.TARGET_MONTH }}\` |"
+            echo "| **Slack Channel** | \`${{ inputs.slack_channel }}\` |"
+            echo ""
+            echo "## Workflow Information"
+            echo ""
+            echo "- **Workflow Run ID**: ${{ github.run_id }}"
+            echo "- **Workflow Run Number**: ${{ github.run_number }}"
+            echo "- **Triggered By**: ${{ github.actor }}"
+            echo "- **Repository**: ${{ github.repository }}"
+            echo "- **Branch**: ${{ github.ref }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate PR data
+        id: generate-pr-data
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          # 対象月の開始日と終了日を計算
+          TARGET_MONTH="${{ steps.set-params.outputs.TARGET_MONTH }}"
+          TARGET_REPO="${{ steps.set-params.outputs.TARGET_REPO }}"
+          START_DATE="${TARGET_MONTH}-01"
+
+          # 次月の1日を計算
+          YEAR=$(echo $TARGET_MONTH | cut -d'-' -f1)
+          MONTH_NUM=$(echo $TARGET_MONTH | cut -d'-' -f2)
+          if [ "$MONTH_NUM" = "12" ]; then
+              NEXT_YEAR=$((YEAR + 1))
+              NEXT_MONTH_NUM="01"
+          else
+              NEXT_YEAR=$YEAR
+              NEXT_MONTH_NUM=$(printf "%02d" $((10#$MONTH_NUM + 1)))
+          fi
+          END_DATE="${NEXT_YEAR}-${NEXT_MONTH_NUM}-01"
+
+          echo "Searching PRs merged between ${START_DATE} and ${END_DATE} in ${TARGET_REPO}"
+
+          # PRを検索してJSONファイルに保存（指定されたリポジトリに限定）
+          gh search prs --repo "${TARGET_REPO}" --merged --merged-at "${START_DATE}..${END_DATE}" --json title,body,number --limit 100 > pr_data.json
+          echo "pr-data-file=pr_data.json" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code with MCP
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          timeout_minutes: ${{ inputs.timeout_minutes }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          mcp_config: |
+            {
+              "mcpServers": {
+                "slack": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-slack"],
+                  "env": {
+                    "SLACK_BOT_TOKEN": "${{ secrets.slack_bot_token }}",
+                    "SLACK_TEAM_ID": "${{ secrets.slack_team_id }}"
+                  }
+                }
+              }
+            }
+          system_prompt: |
+            あなたは月次プロジェクトサマリーレポートを生成するAIアシスタントです。
+            GitHub PRデータを分析して、読みやすい月次活動報告書を作成してください。
+          allowed_tools: "Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,mcp__slack__slack_post_message"
+          claude_env: |
+            SLACK_CHANNEL=${{ inputs.slack_channel }}
+            TARGET_MONTH=${{ steps.set-params.outputs.TARGET_MONTH }}
+            REPOSITORY=${{ steps.set-params.outputs.TARGET_REPO }}
+          prompt: |
+            ${{ steps.set-params.outputs.TARGET_MONTH }}月の月次プロジェクトサマリーを生成してください。
+
+            PRデータは以下のファイルに保存されています：
+            ファイル: ${{ steps.generate-pr-data.outputs.pr-data-file }}
+
+            以下の手順で実行してください：
+
+            1. **PRデータの読み込み**
+               まず、Readツールを使って上記のファイルからPRデータを読み込んでください。
+
+               JSONファイルの形式：
+               ```json
+               [
+                 {
+                   "title": "PR title",
+                   "body": "PR description",
+                   "number": 123
+                 },
+                 ...
+               ]
+               ```
+
+               **処理のTips：**
+               - PRが50件以上ある場合は、まずBashツールで `jq 'length' pr_data.json` を実行して件数を確認
+               - 件数が多い場合は `jq '.[].title' pr_data.json` でタイトルのリストを取得して全体像を把握
+               - 重要そうなPRを特定してから、必要に応じて詳細なbodyを個別に確認
+
+            2. **月次レポートの生成**
+               読み込んだPRデータから以下の形式で月次活動報告書を生成してください：
+
+               ```
+               $(echo $TARGET_MONTH | cut -d'-' -f2 | sed 's/^0//')月もお疲れ様です！ <https://github.com/$REPOSITORY|$REPOSITORY> 活動サマリーです。合計$(jq length pr_data.json)のPRがマージされました!
+
+               *[カテゴリ1]*
+               • [具体的な作業内容1] (<https://github.com/$REPOSITORY/pull/123|#123>, <https://github.com/$REPOSITORY/pull/125|#125>, ... <- 関連するPR number list)
+               • [具体的な作業内容2] (<https://github.com/$REPOSITORY/pull/130|#130>, ... <- 関連するPR number list)
+
+               *[カテゴリ2]*
+               • [具体的な作業内容1] (<https://github.com/$REPOSITORY/pull/135|#135>, ... <- 関連するPR number list)
+
+               *その他*
+               • [その他の作業内容（存在する場合のみ）] (<https://github.com/$REPOSITORY/pull/140|#140>, ... <- 関連するPR number list)
+
+               <勇気づけの一言を考えて。今月も頑張っていけるように。>
+               ```
+
+               **要件：**
+               - PRのタイトルと説明から作業内容を抽出し、関連する作業をカテゴリ別にグループ化
+               - テスト関連、インフラ関連、機能開発関連など適切なカテゴリに分類
+               - 技術的すぎず、わかりやすい表現に変換
+               - Slack用のフォーマット：太字は*text*、リストは•を使用
+               - 日本語で丁寧な文体（アルファベット単語はそのまま使用）
+               - 開発者名は含めない（チーム全体の成果として記載）
+               - カテゴリは大まかに分けて2〜3個（最大5個）に分類
+               - 各カテゴリの間に空行を入れて見やすくする
+               - PR番号はリンク形式で記載：`<https://github.com/$REPOSITORY/pull/123|#123>`
+
+            3. **Slackへの投稿**
+               すべての処理が終わったら、Slack MCPツール（mcp__slack__slack_post_message）を使って以下に投稿してください：
+               - channel: ${{ inputs.slack_channel }}
+
+               **Slackメッセージフォーマット要件：**
+               1. **見出し構造：**
+                  - メインタイトル：太字（*タイトル*）
+                  - セクション見出し：太字（*見出し*）
+                  - サブ見出し：太字（*サブ見出し*）
+
+               2. **リスト形式：**
+                  - 番号付きリスト：`1.`, `2.`, `3.`...
+                  - 箇条書きリスト：`•` または `-`
+                  - インデント：サブ項目は適切にインデントを使用
+
+               3. **強調とマーキング：**
+                  - 重要な情報：太字（*重要*）
+                  - コードやコマンド：バッククォート（`コード`）
+                  - 斜体テキスト：アンダースコア（_斜体_）
+                  - 取り消し線：チルダ（~取り消し~）
+                  - 推奨事項：⭐️ または ✨ の絵文字を使用
+                  - 注意事項：⚠️ または 🔔 の絵文字を使用
+
+               4. **リンク：**
+                  - URLは適切にリンク化（<URL|リンクテキスト>）
+                  - 重要なリンクは改行して見やすく配置
+
+               5. **改行と空白：**
+                  - セクション間は適切な改行を入れて読みやすく
+                  - 長い文章は適切に改行して視認性を向上
+
+               6. **絵文字の使用：**
+                  - 内容に応じて適切な絵文字を使用（📄 📋 ✅ 🔧 等）
+                  - 過度に使用せず、情報の整理に役立つ範囲で使用
+
+      - name: Send error notification to Slack
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            -H "Authorization: Bearer ${{ secrets.slack_bot_token }}" \
+            -d '{
+              "channel": "${{ inputs.slack_channel }}",
+              "text": "⚠️ *月次サマリー生成でエラーが発生しました*\n\nRepository: ${{ steps.set-params.outputs.TARGET_REPO }}\nMonth: ${{ steps.set-params.outputs.TARGET_MONTH }}\n\n処理中にエラーが発生しました。詳細は<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|こちら>をご確認ください。",
+              "mrkdwn": true
+            }' \
+            https://slack.com/api/chat.postMessage
