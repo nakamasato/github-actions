@@ -1,11 +1,11 @@
 # Monthly Project Summary Slack Reusable Workflow
 
-月次プロジェクトサマリーを自動生成し、Slackに投稿する再利用可能なGitHub Actionsワークフローです。AIとMCP（Slack）を使用して、指定されたリポジトリのPRデータを分析し、読みやすい月次活動報告書を生成します。
+月次プロジェクトサマリーを自動生成し、Slackに投稿する再利用可能なGitHub Actionsワークフローです。Claude CodeとMCP（Slack）を使用して、指定されたリポジトリのPRデータを分析し、読みやすい月次活動報告書を生成します。
 
 ## 機能
 
 - 指定した月のマージされたPRを自動取得
-- AIによるPRデータの分析とサマリー生成
+- Claude CodeによるPRデータの分析とサマリー生成
 - カテゴリ別の作業内容整理（機能開発、テスト、インフラなど）
 - Slackへの自動投稿（リンク付きPR番号含む）
 - 前月を自動選択（手動指定も可能）
@@ -23,6 +23,8 @@ on:
 
 jobs:
   generate-summary:
+    permissions:
+      contents: read
     uses: nakamasato/github-actions/.github/workflows/reusable-monthly-project-summary-slack.yml@main
     with:
       repository: owner/repo  # オプション：未指定時は現在のリポジトリ
@@ -46,7 +48,7 @@ jobs:
 | `repository` | No | 対象リポジトリ（owner/repo形式）。未指定時は現在のリポジトリ |
 | `yearmonth` | No | 対象年月（YYYY-MM形式）。未指定時は前月 |
 | `slack_channel` | Yes | Slack投稿先チャンネルID |
-| `timeout_minutes` | No | AI実行のタイムアウト（分）。デフォルト5分 |
+| `timeout_minutes` | No | Claude Code実行のタイムアウト（分）。デフォルト5分 |
 
 ### Secrets
 
@@ -84,12 +86,12 @@ jobs:
 
 1. **GitHub Token**: リポジトリの読み取り権限（他のリポジトリにアクセスする場合のみ`gh_token`が必要）
 2. **Slack Bot Token**: チャンネルへの投稿権限
-3. **AI API**: APIアクセス権限（`claude_code_oauth_token`または`anthropic_api_key`のいずれか一つが必要）
+3. **Claude Code**: APIアクセス権限（`claude_code_oauth_token`または`anthropic_api_key`のいずれか一つが必要）
 
 ## タイムアウト
 
 - ワークフロー全体: 30分
-- AI実行: デフォルト5分（`timeout_minutes`パラメータで調整可能）
+- Claude Code実行: デフォルト5分（`timeout_minutes`パラメータで調整可能）
 
 ## エラーハンドリング
 
