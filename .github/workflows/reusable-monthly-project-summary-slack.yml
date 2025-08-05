@@ -141,11 +141,9 @@ jobs:
             あなたは月次プロジェクトサマリーレポートを生成するAIアシスタントです。
             GitHub PRデータを分析して、読みやすい月次活動報告書を作成してください。
           allowed_tools: "Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,mcp__slack__slack_post_message"
-          claude_env: |
-            SLACK_CHANNEL=${{ inputs.slack_channel }}
-            TARGET_MONTH=${{ steps.set-params.outputs.TARGET_MONTH }}
-            REPOSITORY=${{ steps.set-params.outputs.TARGET_REPO }}
           prompt: |
+            target_repo: ${{ steps.set-params.outputs.TARGET_REPO }}
+
             ${{ steps.set-params.outputs.TARGET_MONTH }}月の月次プロジェクトサマリーを生成してください。
 
             PRデータは以下のファイルに保存されています：
@@ -177,17 +175,17 @@ jobs:
                読み込んだPRデータから以下の形式で月次活動報告書を生成してください：
 
                ```
-               $(echo $TARGET_MONTH | cut -d'-' -f2 | sed 's/^0//')月もお疲れ様です！ <https://github.com/$REPOSITORY|$REPOSITORY> 活動サマリーです。合計$(jq length pr_data.json)のPRがマージされました!
+               $(echo ${{ steps.set-params.outputs.TARGET_MONTH }} | cut -d'-' -f2 | sed 's/^0//')月もお疲れ様です！ <https://github.com/<target_repo>|<target_repo>> 活動サマリーです。合計$(jq length pr_data.json)のPRがマージされました!
 
                *[カテゴリ1]*
-               • [具体的な作業内容1] (<https://github.com/$REPOSITORY/pull/123|#123>, <https://github.com/$REPOSITORY/pull/125|#125>, ... <- 関連するPR number list)
-               • [具体的な作業内容2] (<https://github.com/$REPOSITORY/pull/130|#130>, ... <- 関連するPR number list)
+               • [具体的な作業内容1] (<https://github.com/<target_repo>/pull/123|#123>, <https://github.com/<target_repo>/pull/125|#125>, ... <- 関連するPR number list)
+               • [具体的な作業内容2] (<https://github.com/<target_repo>/pull/130|#130>, ... <- 関連するPR number list)
 
                *[カテゴリ2]*
-               • [具体的な作業内容1] (<https://github.com/$REPOSITORY/pull/135|#135>, ... <- 関連するPR number list)
+               • [具体的な作業内容1] (<https://github.com/<target_repo>/pull/135|#135>, ... <- 関連するPR number list)
 
                *その他*
-               • [その他の作業内容（存在する場合のみ）] (<https://github.com/$REPOSITORY/pull/140|#140>, ... <- 関連するPR number list)
+               • [その他の作業内容（存在する場合のみ）] (<https://github.com/<target_repo>/pull/140|#140>, ... <- 関連するPR number list)
 
                <勇気づけの一言を考えて。今月も頑張っていけるように。>
                ```
@@ -201,7 +199,7 @@ jobs:
                - 開発者名は含めない（チーム全体の成果として記載）
                - カテゴリは大まかに分けて2〜3個（最大5個）に分類
                - 各カテゴリの間に空行を入れて見やすくする
-               - PR番号はリンク形式で記載：`<https://github.com/$REPOSITORY/pull/123|#123>`
+               - PR番号はリンク形式で記載：`<https://github.com/<target_repo>/pull/123|#123>`
 
             3. **Slackへの投稿**
                すべての処理が終わったら、Slack MCPツール（mcp__slack__slack_post_message）を使って以下に投稿してください：
