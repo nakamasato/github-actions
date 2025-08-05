@@ -32,7 +32,7 @@ jobs:
     secrets:
       slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
       slack_team_id: ${{ secrets.SLACK_TEAM_ID }}
-      github_token: ${{ secrets.GITHUB_TOKEN }}
+      gh_token: ${{ secrets.GH_TOKEN }}  # クロスリポジトリアクセス用（オプション）
       claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}  # どちらか一つが必要
       anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}  # どちらか一つが必要
 ```
@@ -54,11 +54,12 @@ jobs:
 |-------------|------|------|
 | `slack_bot_token` | Yes | Slack Bot Token |
 | `slack_team_id` | Yes | Slack Team ID |
-| `github_token` | Yes | GitHub Token（PR取得用） |
+| `gh_token` | No* | GitHub Token（クロスリポジトリアクセス用） |
 | `claude_code_oauth_token` | No* | Claude Code OAuth Token |
 | `anthropic_api_key` | No* | Anthropic API Key |
 
-*どちらか一つが必要
+*`claude_code_oauth_token`または`anthropic_api_key`のどちらか一つが必要  
+*`gh_token`は他のリポジトリにアクセスする場合のみ必要（未指定時は`secrets.GITHUB_TOKEN`を使用）
 
 ## 生成されるサマリー形式
 
@@ -81,7 +82,7 @@ jobs:
 
 ## 必要な権限・設定
 
-1. **GitHub Token**: リポジトリの読み取り権限
+1. **GitHub Token**: リポジトリの読み取り権限（他のリポジトリにアクセスする場合のみ`gh_token`が必要）
 2. **Slack Bot Token**: チャンネルへの投稿権限
 3. **AI API**: APIアクセス権限（`claude_code_oauth_token`または`anthropic_api_key`のいずれか一つが必要）
 

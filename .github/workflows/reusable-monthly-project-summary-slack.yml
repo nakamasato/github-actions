@@ -27,9 +27,9 @@ on:
       slack_team_id:
         description: 'Slack Team ID'
         required: true
-      github_token:
-        description: 'GitHub Token'
-        required: true
+      gh_token:
+        description: 'GitHub Token for cross-repository access'
+        required: false
       claude_code_oauth_token:
         description: 'Claude Code OAuth Token'
         required: false
@@ -94,7 +94,7 @@ jobs:
       - name: Generate PR data
         id: generate-pr-data
         env:
-          GH_TOKEN: ${{ secrets.github_token }}
+          GH_TOKEN: ${{ secrets.gh_token || secrets.GITHUB_TOKEN }}
         run: |
           # 対象月の開始日と終了日を計算
           TARGET_MONTH="${{ steps.set-params.outputs.TARGET_MONTH }}"
