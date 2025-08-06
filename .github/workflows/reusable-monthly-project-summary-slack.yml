@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Generate monthly project summary
-        uses: nakamasato/github-actions/monthly-project-summary-slack@b84e7afc6cd22044af3397f993870ed149d3801e # TODO: Replace with tag after release
+        uses: nakamasato/github-actions/monthly-project-summary-slack@add-composite-action-monthly-summary # TODO: Replace with tag after release
         with:
           yearmonth: ${{ inputs.yearmonth }}
           slack_channel: ${{ inputs.slack_channel }}
