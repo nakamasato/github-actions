@@ -2,7 +2,7 @@
 
 月次プロジェクトサマリーを自動生成し、Slackに投稿するcomposite actionです。Claude CodeとMCP（Slack）を使用して、指定されたリポジトリのPRデータを分析し、読みやすい月次活動報告書を生成します。
 
-**クロスorganization対応**: GitHub App tokenを使用することで、他のorganizationのリポジトリにもアクセス可能です。
+**クロスリポジトリ対応**: GitHub App tokenを使用することで、他のリポジトリ（異なるorganizationを含む）にもアクセス可能です。
 
 ## 機能
 
@@ -11,7 +11,7 @@
 - カテゴリ別の作業内容整理（機能開発、テスト、インフラなど）
 - Slackへの自動投稿（リンク付きPR番号含む）
 - 前月を自動選択（手動指定も可能）
-- GitHub App token対応でクロスorganizationアクセス可能
+- GitHub App token対応でクロスリポジトリアクセス可能
 
 ## 使用方法
 
@@ -37,7 +37,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-### クロスorganization対応（GitHub App token使用）
+### クロスリポジトリ対応（GitHub App token使用）
 
 ```yaml
 name: Monthly Project Summary
@@ -79,7 +79,7 @@ jobs:
 | `yearmonth` | No | 前月 | 対象年月（YYYY-MM形式） |
 | `slack_channel` | Yes | - | Slack投稿先チャンネルID |
 | `timeout_minutes` | No | 5 | Claude Code実行のタイムアウト（分） |
-| `github_token` | No | `${{ github.token }}` | GitHub Token（クロスorg用GitHub App token対応） |
+| `github_token` | No | `${{ github.token }}` | GitHub Token（クロスリポジトリ用GitHub App token対応） |
 | `slack_bot_token` | Yes | - | Slack Bot Token |
 | `slack_team_id` | Yes | - | Slack Team ID |
 | `claude_code_oauth_token` | No* | - | Claude Code OAuth Token |
@@ -113,8 +113,8 @@ jobs:
 2. **Slack Bot Token**: チャンネルへの投稿権限
 3. **Claude Code**: APIアクセス権限（`claude_code_oauth_token`または`anthropic_api_key`のいずれか一つが必要）
 
-### クロスorganization用GitHub App設定
-他のorganizationのリポジトリにアクセスする場合：
+### クロスリポジトリ用GitHub App設定
+他のリポジトリ（異なるorganizationを含む）にアクセスする場合：
 
 1. **GitHub App作成**: 対象organizationでGitHub Appを作成
 2. **権限設定**:
@@ -130,6 +130,6 @@ jobs:
 
 ## 特徴
 
-- **柔軟性**: 同一リポジトリでも他organizationのリポジトリでも使用可能
-- **GitHub App対応**: GitHub App tokenを使用してクロスorganizationアクセスが可能
+- **柔軟性**: 同一リポジトリでも他のリポジトリでも使用可能
+- **GitHub App対応**: GitHub App tokenを使用してクロスリポジトリアクセスが可能
 - **シンプルな使用方法**: 直接composite actionを呼び出すだけで利用可能
