@@ -34,7 +34,7 @@ jobs:
           slack_channel: C1234567890
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           slack_team_id: ${{ secrets.SLACK_TEAM_ID }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
 ### クロスリポジトリ対応（GitHub App token使用）
@@ -68,7 +68,52 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           slack_team_id: ${{ secrets.SLACK_TEAM_ID }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### 複数リポジトリの一括処理（Matrix戦略使用）
+
+複数のリポジトリに対して月次サマリーを生成し、それぞれ異なるSlackチャンネルに投稿する場合：
+
+```yaml
+name: Monthly Project Summary - Multiple Repos
+on:
+  schedule:
+    - cron: '0 9 1 * *'  # 毎月1日9時に実行
+  workflow_dispatch:
+
+jobs:
+  generate-summaries:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: project-api
+            channel: C1234567890 # proj-api
+          - repository: project-frontend
+            channel: C2345678901 # proj-frontend
+          - repository: project-infrastructure
+            channel: C3456789012 # proj-infra
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          repositories: |
+            ${{ matrix.repository }}
+
+      - name: Generate monthly summary
+        uses: nakamasato/github-actions/monthly-project-summary-slack@1.13.1
+        with:
+          slack_channel: ${{ matrix.channel }}
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack_team_id: ${{ secrets.SLACK_TEAM_ID }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository_owner }}/${{ matrix.repository }}
 ```
 
 ## Inputs
