@@ -85,7 +85,7 @@ jobs:
 
 ## 制限事項
 
-このreusable workflowは**同一リポジトリのみ**対応しています。他のorganizationのリポジトリにアクセスする場合は、[composite action版](../../monthly-project-summary-slack/README.md)をご利用ください。
+このreusable workflowは**同一リポジトリのみ**対応しています。他のorganizationのリポジトリにアクセスする場合は、[composite action版](../../monthly-project-summary-slack/README.md) (`nakamasato/github-actions/monthly-project-summary-slack@main`) をご利用ください。
 
 ## タイムアウト
 
