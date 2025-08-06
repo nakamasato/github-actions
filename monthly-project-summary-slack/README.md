@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate monthly summary
-        uses: nakamasato/github-actions/monthly-project-summary-slack@main
+        uses: nakamasato/github-actions/monthly-project-summary-slack@1.13.1
         with:
           slack_channel: C1234567890
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -59,7 +59,7 @@ jobs:
           owner: target-org  # アクセス先のorganization
 
       - name: Generate monthly summary
-        uses: nakamasato/github-actions/monthly-project-summary-slack@main
+        uses: nakamasato/github-actions/monthly-project-summary-slack@1.13.1
         with:
           repository: target-org/target-repo
           yearmonth: 2024-12
@@ -128,7 +128,8 @@ jobs:
 
 処理が失敗した場合、指定されたSlackチャンネルにエラー通知が送信されます。
 
-## 関連
+## 特徴
 
-- **Reusable Workflow版**: 同一リポジトリ専用の[reusable-monthly-project-summary-slack](../.github/workflows/reusable-monthly-project-summary-slack.md)もあります
-- **違い**: Composite Actionはクロスorganization対応、Reusable Workflowは同一リポジトリのみ対応
+- **柔軟性**: 同一リポジトリでも他organizationのリポジトリでも使用可能
+- **GitHub App対応**: GitHub App tokenを使用してクロスorganizationアクセスが可能
+- **シンプルな使用方法**: 直接composite actionを呼び出すだけで利用可能
