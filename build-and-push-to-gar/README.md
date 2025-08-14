@@ -2,22 +2,28 @@
 
 Build a docker image and push it to Google Artifact Registry.
 
+This action uses GitHub Actions cache (GHA cache) for Docker layer caching, which is optimized for Google-hosted runners.
+
 ## Inputs
 
-- dockerfile
-- context
-- region
-- repository
-- image
-- image_tag
-- workload_identity_provider
-- service_account
+- `project` (required): GCP project id
+- `image` (required): Image name
+- `workload_identity_provider` (required): Workload Identity Provider
+- `service_account` (required): Service Account
+- `dockerfile` (optional): Dockerfile path (default: 'Dockerfile')
+- `context` (optional): Docker context for build-push-action (default: '.')
+- `region` (optional): GCP region (default: 'asia-northeast1')
+- `repository` (optional): GCP Artifact Registry repository (default: 'cloud-run-source-deploy')
+- `image_tag` (optional): Image tag (default: 'latest')
+- `build-args` (optional): Build arguments for docker build
+- `driver` (optional): Driver for setup-buildx-action (default: 'docker-container')
 
 ## Outputs
 
-- imageid
-- digest
-- metadata
+- `imageid`: Docker image ID
+- `digest`: Image digest
+- `metadata`: Image metadata
+- `full_image_name`: Full image name (registry/project/repository/image)
 
 ## Example
 
@@ -50,7 +56,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and Push
-        uses: nakamasato/github-actions/build-and-push-to-gar@1.8.0
+        uses: nakamasato/github-actions/build-and-push-to-gar@1.3.2
         with:
           dockerfile: Dockerfile
           context: . # optional config for build-push-actions
