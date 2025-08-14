@@ -70,7 +70,7 @@ jobs:
           echo "IMAGE_TAG=${{ github.event_name == 'pull_request' && github.sha || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy CloudRun
-        uses: nakamasato/github-actions/deploy-python-app-to-cloud-run@1.3.2
+        uses: nakamasato/github-actions/deploy-python-app-to-cloud-run@1.13.2
         with:
           project: ${{ env.PROJECT }}
           region: ${{ env.REGION }}
@@ -120,7 +120,7 @@ jobs:
           echo "IMAGE_TAG=${{ github.event_name == 'pull_request' && github.sha || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy CloudRun
-        uses: nakamasato/github-actions/deploy-python-app-to-cloud-run@1.3.2
+        uses: nakamasato/github-actions/deploy-python-app-to-cloud-run@1.13.2
         with:
           dockerfile: Dockerfile # this is necessary to use build-push-actions
           context: . # optional config for build-push-actions

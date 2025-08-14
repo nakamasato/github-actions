@@ -56,7 +56,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and Push
-        uses: nakamasato/github-actions/build-and-push-to-gar@1.3.2
+        uses: nakamasato/github-actions/build-and-push-to-gar@1.13.2
         with:
           dockerfile: Dockerfile
           context: . # optional config for build-push-actions
