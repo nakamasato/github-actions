@@ -89,7 +89,7 @@ runs:
         echo "pr-data-file=pr_data.json" >> "$GITHUB_OUTPUT"
 
     - name: Run Claude Code with MCP
-      uses: anthropics/claude-code-base-action@7074b052d7c3722e990ecf5df2fbbccec11643b1
+      uses: anthropics/claude-code-base-action@02fdce0aa2f1155a20deb47153ae2d1dcced9dc0
       with:
         timeout_minutes: ${{ inputs.timeout_minutes }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
