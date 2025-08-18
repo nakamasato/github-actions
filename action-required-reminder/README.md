@@ -102,16 +102,16 @@ Your Slack bot needs the following OAuth scopes:
 The action posts a message to Slack like:
 
 ```
-👋 <@U1234567890> さん、要アクションリマインダーです！
+👋 <@U1234567890>, this is action required reminder!
 
-📬 未返信のSlackメッセージ: 3件
+📬 *Unreplied Slack messages: 3 messages*
 https://workspace.slack.com/archives/C123/p1234567890
 https://workspace.slack.com/archives/C456/p1234567891
 https://workspace.slack.com/archives/C789/p1234567892
 
-🔍 レビュー待ちのPR: 2件
+🔍 *Review Requested PR: 2 PRs*
 https://github.com/myorg/frontend/pull/123
 https://github.com/myorg/backend/pull/456
 
-今日も頑張りましょう！💪
+Keep it up!💪
 ```

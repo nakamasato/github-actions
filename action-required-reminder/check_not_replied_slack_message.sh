@@ -2,19 +2,19 @@
 
 set -euo pipefail
 
-# 必要な環境変数のチェック
+# Check required environment variables
 : "${SLACK_BOT_TOKEN:?SLACK_BOT_TOKEN is required}"
 : "${SLACK_WORKSPACE:?SLACK_WORKSPACE is required}"
 : "${SLACK_USER_ID:?SLACK_USER_ID is required}"
 : "${SLACK_SEARCH_DAYS:=7}"
 
-# Slack APIのベースURL
+# Slack API base URL
 SLACK_API_URL="https://slack.com/api"
 
-# 検索開始日を計算（YYYY-mm-dd形式）
+# Calculate search start date (YYYY-mm-dd format)
 SEARCH_FROM=$(date -v-${SLACK_SEARCH_DAYS}d +%Y-%m-%d)
 
-# メッセージを検索
+# Search messages
 search_messages() {
     local query="<@${1}> after:${SEARCH_FROM}"
     local response=$(curl -s -X GET "${SLACK_API_URL}/search.messages" \
@@ -26,7 +26,7 @@ search_messages() {
     echo "$response"
 }
 
-# メッセージにリアクションがあるかチェック
+# Check if message has reactions
 has_user_reaction() {
     local channel="$1"
     local timestamp="$2"
@@ -39,7 +39,7 @@ has_user_reaction() {
         --data-urlencode "timestamp=${timestamp}")
 
     if [ "$(echo "$response" | jq -r '.ok')" = "true" ]; then
-        # ユーザーがリアクションしているかチェック
+        # Check if user has reacted
         local reaction_count=$(echo "$response" | jq "[.message.reactions[]?.users[] | select(. == \"${user_id}\")] | length")
         [ "$reaction_count" -gt 0 ]
     else
@@ -47,7 +47,7 @@ has_user_reaction() {
     fi
 }
 
-# スレッドでユーザーが返信しているかチェック（メンション後の返信のみ）
+# Check if user has replied in thread (only replies after mention)
 has_user_reply_in_thread() {
     local channel="$1"
     local thread_ts="$2"
@@ -61,7 +61,7 @@ has_user_reply_in_thread() {
         --data-urlencode "ts=${thread_ts}")
 
     if [ "$(echo "$response" | jq -r '.ok')" = "true" ]; then
-        # メンション後の返信のみをチェック（メンションメッセージより後のタイムスタンプ）
+        # Check only replies after mention (timestamps after mention message)
         local reply_count=$(echo "$response" | jq "[.messages[] | select(.user == \"${user_id}\" and (.ts | tonumber) > (\"${mention_ts}\" | tonumber))] | length")
         echo "Thread replies after mention: $reply_count" >&2
         [ "$reply_count" -gt 0 ]
@@ -71,33 +71,33 @@ has_user_reply_in_thread() {
 }
 
 
-# メイン処理
+# Main processing
 main() {
-    # メッセージを検索
+    # Search messages
     SEARCH_RESULT=$(search_messages "$SLACK_USER_ID")
 
-    # 検索結果の確認
+    # Verify search results
     if [ "$(echo "$SEARCH_RESULT" | jq -r '.ok')" != "true" ]; then
         echo "Error: Search failed" >&2
         echo "$SEARCH_RESULT" | jq -r '.error // "Unknown error"' >&2
         exit 1
     fi
 
-    # 検索結果からメッセージを処理
+    # Process messages from search results
     UNREPLIED_URLS=""
 
-    # プライベートチャンネルを除外してパブリックチャンネルのメッセージのみに絞り込み
+    # Filter to public channels only, excluding private channels
     FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false)]')
     MESSAGE_COUNT=$(echo "$FILTERED_MESSAGES" | jq 'length')
 
     echo "Found $MESSAGE_COUNT messages mentioning <@$SLACK_USER_ID> in public channels" >&2
 
     if [ "$MESSAGE_COUNT" -eq 0 ]; then
-        # メッセージがない場合は終了
+        # Exit if no messages found
         exit 0
     fi
 
-    # カウンター初期化
+    # Initialize counters
     REPLIED_COUNT=0
     REACTED_COUNT=0
 
@@ -109,7 +109,7 @@ main() {
         NO_REACTIONS=$(echo "$MESSAGE" | jq -r '.no_reactions // false')
         MESSAGE_TEXT=$(echo "$MESSAGE" | jq -r '.text')
 
-        # スレッドの場合はthread_tsを取得、そうでなければメッセージ自体のts
+        # Get thread_ts for threaded messages, otherwise use message ts
         THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2)
         if [ -n "$THREAD_TS" ]; then
             THREAD_ROOT_TS="$THREAD_TS"
@@ -119,11 +119,11 @@ main() {
 
         echo "Processing message: $(echo "$MESSAGE_TEXT" | head -c 50)... (ts: $TIMESTAMP, thread_ts: $THREAD_ROOT_TS)" >&2
 
-        # リアクションとスレッド返信をチェック
+        # Check reactions and thread replies
         HAS_REACTION=false
         HAS_REPLY=false
 
-        # no_reactions が true でなければリアクションをチェック
+        # Check reactions only if no_reactions is not true
         if [ "$NO_REACTIONS" != "true" ]; then
             if has_user_reaction "$CHANNEL" "$TIMESTAMP" "$SLACK_USER_ID"; then
                 HAS_REACTION=true
@@ -136,7 +136,7 @@ main() {
             REPLIED_COUNT=$((REPLIED_COUNT + 1))
         fi
 
-        # どちらもない場合は未返信としてURLを追加
+        # Add URL to unreplied list if no reaction or reply
         if [ "$HAS_REACTION" = "false" ] && [ "$HAS_REPLY" = "false" ]; then
             if [ -n "$UNREPLIED_URLS" ]; then
                 UNREPLIED_URLS="${UNREPLIED_URLS}\n${PERMALINK}"
@@ -146,13 +146,13 @@ main() {
         fi
     done
 
-    # サマリーをログ出力
+    # Output summary to log
     echo "Messages with emoji reactions: $REACTED_COUNT" >&2
     echo "Messages with thread replies: $REPLIED_COUNT" >&2
     UNREPLIED_COUNT=$((MESSAGE_COUNT - REACTED_COUNT - REPLIED_COUNT))
     echo "Unreplied messages: $UNREPLIED_COUNT" >&2
 
-    # 結果を出力
+    # Output results
     if [ -n "$UNREPLIED_URLS" ]; then
         echo -e "$UNREPLIED_URLS"
     fi

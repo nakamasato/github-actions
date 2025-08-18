@@ -51,15 +51,15 @@ runs:
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
       run: |
         chmod +x action-required-reminder/check_not_replied_slack_message.sh
-        # ログをstderrに出力し、URLのみをstdoutから取得
+        # Output logs to stderr and capture only URLs from stdout
         SLACK_URLS=$(./action-required-reminder/check_not_replied_slack_message.sh 2>/dev/null)
 
-        # JSON形式で出力を保存
+        # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
         echo "$SLACK_URLS" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
 
-        # メッセージ数をカウント
+        # Count number of messages
         if [ -z "$SLACK_URLS" ]; then
           echo "count=0" >> "$GITHUB_OUTPUT"
         else
@@ -78,12 +78,12 @@ runs:
         chmod +x action-required-reminder/check_not_reviewed_gh_pr.sh
         PR_URLS=$(./action-required-reminder/check_not_reviewed_gh_pr.sh)
 
-        # JSON形式で出力を保存
+        # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
         echo "$PR_URLS" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
 
-        # PR数をカウント
+        # Count number of PRs
         if [ -z "$PR_URLS" ]; then
           echo "count=0" >> "$GITHUB_OUTPUT"
         else
@@ -98,15 +98,15 @@ runs:
       with:
         channel-id: ${{ inputs.slack_channel_id }}
         slack-message: |
-          👋 <@${{ inputs.slack_user_id }}> さん、要アクションリマインダーです！
+          👋 <@${{ inputs.slack_user_id }}>, this is action required reminder!
 
-          ${{ steps.check-slack.outputs.count > 0 && format('📬 *未返信のSlackメッセージ: {0}件*', steps.check-slack.outputs.count) || '' }}
+          ${{ steps.check-slack.outputs.count > 0 && format('📬 *Unreplied Slack messages: {0} messages*', steps.check-slack.outputs.count) || '' }}
           ${{ steps.check-slack.outputs.count > 0 && steps.check-slack.outputs.urls || '' }}
 
-          ${{ steps.check-prs.outputs.count > 0 && format('🔍 *レビュー待ちのPR: {0}件*', steps.check-prs.outputs.count) || '' }}
+          ${{ steps.check-prs.outputs.count > 0 && format('🔍 *Review Requested PR: {0} PRs*', steps.check-prs.outputs.count) || '' }}
           ${{ steps.check-prs.outputs.count > 0 && steps.check-prs.outputs.urls || '' }}
 
-          ${{ steps.check-slack.outputs.count == 0 && steps.check-prs.outputs.count == 0 && '✨ 素晴らしい！すべてのタスクが完了しています！' || '今日も頑張りましょう！💪' }}
+          ${{ steps.check-slack.outputs.count == 0 && steps.check-prs.outputs.count == 0 && '✨ Awesome! No action required!' || 'Keep it up!💪' }}
 
 branding:
   icon: 'check-circle'
