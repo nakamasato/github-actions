@@ -113,8 +113,8 @@ runs:
           }'
           BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_SECTION]")
 
-          # Build Slack links list
-          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+          # Build Slack links list (filter out empty titles)
+          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
           if [ -n "$SLACK_LINKS" ]; then
             SLACK_LINKS_SECTION='{
               "type": "section",
@@ -138,8 +138,8 @@ runs:
           }'
           BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_SECTION]")
 
-          # Build PR links list
-          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+          # Build PR links list (filter out empty titles)
+          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
           if [ -n "$PR_LINKS" ]; then
             PR_LINKS_SECTION='{
               "type": "section",
@@ -172,6 +172,33 @@ runs:
         echo "blocks<<EOF" >> "$GITHUB_OUTPUT"
         echo "$BLOCKS" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Add job summary
+      shell: bash
+      env:
+        SLACK_URLS: ${{ steps.check-slack.outputs.urls }}
+        PR_URLS: ${{ steps.check-prs.outputs.urls }}
+        SLACK_COUNT: ${{ steps.check-slack.outputs.count }}
+        PR_COUNT: ${{ steps.check-prs.outputs.count }}
+      run: |
+        echo "# Action Required Reminder Debug Info" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Slack Messages JSON" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+        echo "$SLACK_URLS" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## GitHub PRs JSON" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+        echo "$PR_URLS" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Counts" >> $GITHUB_STEP_SUMMARY
+        echo "- Slack messages: $SLACK_COUNT" >> $GITHUB_STEP_SUMMARY
+        echo "- GitHub PRs: $PR_COUNT" >> $GITHUB_STEP_SUMMARY
 
     - name: Post reminder to Slack
       uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1

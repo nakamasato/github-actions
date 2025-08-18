@@ -74,6 +74,8 @@ For simpler setups or single-organization use, you can use a Personal Access Tok
 
 **Note:** The default `${{ github.token }}` provided by GitHub Actions may have limited scope and might not work for cross-repository searches. If you encounter issues with PR detection, consider using a GitHub App token or PAT with broader permissions.
 
+**For cross-organization access:** If you need to search across multiple organizations, install the GitHub App in each target organization and use `owner: organization-name` instead of `${{ github.repository_owner }}`.
+
 ## Slack Setup
 
 ### User Token (`slack_user_token`) - Required
@@ -117,6 +119,7 @@ Required OAuth scopes when provided:
   with:
     app-id: ${{ secrets.GH_APP_CLIENT_ID }}
     private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+    owner: ${{ github.repository_owner }}
 
 - uses: nakamasato/github-actions/action-required-reminder@main
   with:
