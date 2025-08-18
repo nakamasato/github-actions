@@ -6,17 +6,14 @@ set -euo pipefail
 : "${SLACK_USER_TOKEN:?SLACK_USER_TOKEN is required}"
 : "${SLACK_WORKSPACE:?SLACK_WORKSPACE is required}"
 : "${SLACK_USER_ID:?SLACK_USER_ID is required}"
-: "${SLACK_SEARCH_DAYS:=7}"
+: "${SLACK_START_DATE:?SLACK_START_DATE is required}"
 
 # Slack API base URL
 SLACK_API_URL="https://slack.com/api"
 
-# Calculate search start date (YYYY-mm-dd format)
-SEARCH_FROM=$(date -d "${SLACK_SEARCH_DAYS} days ago" +%Y-%m-%d)
-
 # Search messages
 search_messages() {
-    local query="<@${1}> after:${SEARCH_FROM}"
+    local query="<@${1}> after:${SLACK_START_DATE}"
     local response=$(curl -s -X GET "${SLACK_API_URL}/search.messages" \
         -H "Authorization: Bearer ${SLACK_USER_TOKEN}" \
         -G \
@@ -114,6 +111,9 @@ main() {
         NO_REACTIONS=$(echo "$MESSAGE" | jq -r '.no_reactions // false')
         MESSAGE_TEXT=$(echo "$MESSAGE" | jq -r '.text')
 
+        # Extract text from first 2 blocks
+        MESSAGE_BLOCK_TEXT=$(echo "$MESSAGE" | jq -r '[.blocks[0:2][]? | select(.text?.text) | .text.text] | join(" ")' 2>/dev/null || echo "")
+
         # Debug: Show full message JSON
         echo "Debug: Full message JSON: $MESSAGE" >&2
 
@@ -150,15 +150,23 @@ main() {
 
         # Add URL to unreplied list if no reaction or reply
         if [ "$HAS_REACTION" = "false" ] && [ "$HAS_REPLY" = "false" ]; then
-            # Debug: Show raw message text
+            # Debug: Show raw message content
             echo "Debug: Raw MESSAGE_TEXT for $PERMALINK: '$MESSAGE_TEXT'" >&2
+            echo "Debug: Raw MESSAGE_BLOCK_TEXT for $PERMALINK: '$MESSAGE_BLOCK_TEXT'" >&2
 
-            # Get first 50 characters of message text for link title
-            MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+            # Get first 50 characters - try text field first, then blocks
+            if [ -n "$MESSAGE_TEXT" ] && [ "$MESSAGE_TEXT" != "null" ]; then
+                MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+            elif [ -n "$MESSAGE_BLOCK_TEXT" ] && [ "$MESSAGE_BLOCK_TEXT" != "null" ]; then
+                MESSAGE_PREVIEW=$(echo "$MESSAGE_BLOCK_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+            else
+                MESSAGE_PREVIEW=""
+            fi
 
-            # If message preview is empty, use a fallback
-            if [ -z "$MESSAGE_PREVIEW" ] || [ "$MESSAGE_PREVIEW" = " " ]; then
-                MESSAGE_PREVIEW="Slack message $(date -d @$(echo $TIMESTAMP | cut -d'.' -f1) +%m/%d)"
+            # If still empty, use channel name as fallback
+            if [ -z "$MESSAGE_PREVIEW" ] || [ "${#MESSAGE_PREVIEW}" -lt 3 ]; then
+                CHANNEL_NAME=$(echo "$MESSAGE" | jq -r '.channel.name // "unknown"')
+                MESSAGE_PREVIEW="Message in #${CHANNEL_NAME}"
             fi
 
             echo "Debug: MESSAGE_PREVIEW: '$MESSAGE_PREVIEW'" >&2
