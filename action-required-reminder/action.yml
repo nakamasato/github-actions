@@ -44,7 +44,17 @@ runs:
       run: |
         chmod +x "$GITHUB_ACTION_PATH/check_not_replied_slack_message.sh"
         # Output logs to stderr and capture only URLs from stdout
-        SLACK_URLS=$("$GITHUB_ACTION_PATH/check_not_replied_slack_message.sh" 2>/dev/null)
+        echo "Running Slack message check..."
+        set +e  # Disable exit on error temporarily
+        SLACK_URLS=$("$GITHUB_ACTION_PATH/check_not_replied_slack_message.sh")
+        SLACK_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        echo "Slack check completed with exit code: $SLACK_EXIT_CODE"
+
+        if [ $SLACK_EXIT_CODE -ne 0 ]; then
+          echo "Warning: Slack message check failed, continuing with empty results"
+          SLACK_URLS=""
+        fi
 
         # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
@@ -68,7 +78,17 @@ runs:
         GH_REPOS: ${{ inputs.gh_repos }}
       run: |
         chmod +x "$GITHUB_ACTION_PATH/check_not_reviewed_gh_pr.sh"
+        echo "Running GitHub PR check..."
+        set +e  # Disable exit on error temporarily
         PR_URLS=$("$GITHUB_ACTION_PATH/check_not_reviewed_gh_pr.sh")
+        PR_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+        echo "PR check completed with exit code: $PR_EXIT_CODE"
+
+        if [ $PR_EXIT_CODE -ne 0 ]; then
+          echo "Warning: GitHub PR check failed, continuing with empty results"
+          PR_URLS=""
+        fi
 
         # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
