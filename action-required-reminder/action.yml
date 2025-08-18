@@ -103,22 +103,46 @@ runs:
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Post reminder to Slack
-      uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+    - name: Build Slack message
+      id: build-message
+      shell: bash
       env:
-        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+        SLACK_USER_ID: ${{ inputs.slack_user_id }}
+        SLACK_COUNT: ${{ steps.check-slack.outputs.count }}
+        SLACK_URLS: ${{ steps.check-slack.outputs.urls }}
+        PR_COUNT: ${{ steps.check-prs.outputs.count }}
+        PR_URLS: ${{ steps.check-prs.outputs.urls }}
+      run: |
+        # Build message
+        MESSAGE="👋 <@${SLACK_USER_ID}>, this is action required reminder!"
+
+        if [ "$SLACK_COUNT" -gt 0 ]; then
+          MESSAGE="${MESSAGE}\n\n📬 *Unreplied Slack messages: ${SLACK_COUNT} messages*\n${SLACK_URLS}"
+        fi
+
+        if [ "$PR_COUNT" -gt 0 ]; then
+          MESSAGE="${MESSAGE}\n\n🔍 *Review Requested PR: ${PR_COUNT} PRs*\n${PR_URLS}"
+        fi
+
+        if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
+          MESSAGE="${MESSAGE}\n\n✨ Awesome! No action required!"
+        else
+          MESSAGE="${MESSAGE}\n\nKeep it up!💪"
+        fi
+
+        # Save message to output
+        echo "message<<EOF" >> "$GITHUB_OUTPUT"
+        echo -e "$MESSAGE" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Post reminder to Slack
+      uses: slackapi/slack-github-action@v2.1.1
       with:
-        channel-id: ${{ inputs.slack_channel_id }}
-        slack-message: |
-          👋 <@${{ inputs.slack_user_id }}>, this is action required reminder!
-
-          ${{ steps.check-slack.outputs.count > 0 && format('📬 *Unreplied Slack messages: {0} messages*', steps.check-slack.outputs.count) || '' }}
-          ${{ steps.check-slack.outputs.count > 0 && steps.check-slack.outputs.urls || '' }}
-
-          ${{ steps.check-prs.outputs.count > 0 && format('🔍 *Review Requested PR: {0} PRs*', steps.check-prs.outputs.count) || '' }}
-          ${{ steps.check-prs.outputs.count > 0 && steps.check-prs.outputs.urls || '' }}
-
-          ${{ steps.check-slack.outputs.count == 0 && steps.check-prs.outputs.count == 0 && '✨ Awesome! No action required!' || 'Keep it up!💪' }}
+        method: chat.postMessage
+        token: ${{ inputs.slack_bot_token }}
+        payload: |
+          channel: ${{ inputs.slack_channel_id }}
+          text: "${{ steps.build-message.outputs.message }}"
 
 branding:
   icon: 'check-circle'
