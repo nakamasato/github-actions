@@ -163,9 +163,9 @@ runs:
 
         # Add footer
         if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
-          FOOTER_TEXT="✨ Awesome! No action required!"
+          FOOTER_TEXT="✨ Awesome! No action required! ✅️"
         else
-          FOOTER_TEXT="Keep it up!💪"
+          FOOTER_TEXT="Keep it up! 💪"
         fi
 
         FOOTER_SECTION='{
