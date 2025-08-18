@@ -34,7 +34,7 @@ runs:
   using: 'composite'
   steps:
     - name: Checkout scripts
-      uses: actions/checkout@v4
+      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       with:
         sparse-checkout: |
           action-required-reminder/check_not_replied_slack_message.sh
@@ -92,7 +92,7 @@ runs:
         fi
 
     - name: Post reminder to Slack
-      uses: slackapi/slack-github-action@v2.0.0
+      uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
       env:
         SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
       with:
