@@ -1,0 +1,213 @@
+# Action Required Reminder
+
+GitHub Action that checks for unreplied Slack messages and unreviewed GitHub PRs, then sends a reminder to Slack.
+
+## Features
+
+- 🔍 Searches for Slack messages where you're mentioned
+- 📬 Identifies messages without emoji reactions or thread replies
+- 🔎 Finds GitHub PRs where you're requested as a reviewer
+- 📝 Checks if you've already reviewed the PRs
+- 📢 Sends a consolidated reminder to Slack
+
+## Usage
+
+```yaml
+name: Action Required Reminder
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at 9 AM JST
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: nakamasato/github-actions/action-required-reminder@main
+        with:
+          slack_workspace: 'your-workspace'
+          slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
+          slack_user_id: 'U1234567890'
+          github_user: 'your-github-username'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: separate bot token for posting messages
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Optional: specify repositories
+          gh_repos: 'owner/repo1,owner/repo2'
+          # Or specify organization (ignored if gh_repos is set)
+          gh_org: 'your-org'
+```
+
+## Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `gh_org` | Target GitHub organization | No | - |
+| `gh_repos` | Target repositories (comma-separated) | No | - |
+| `slack_workspace` | Slack workspace name | Yes | - |
+| `slack_channel_id` | Slack channel ID for reminders | Yes | - |
+| `slack_user_token` | Slack User Token for searching messages | Yes | - |
+| `slack_bot_token` | Slack Bot Token for posting messages | No | Uses `slack_user_token` if not provided |
+| `slack_search_days` | Days to search for Slack messages | No | `7` |
+| `slack_user_id` | Target Slack user ID | Yes | - |
+| `github_user` | GitHub username for PR review requests | Yes | - |
+| `github_token` | GitHub Token | No | `${{ github.token }}` |
+
+## GitHub Setup
+
+### GitHub Token Requirements
+
+The action requires access to search for pull requests across repositories. There are two options:
+
+#### Option 1: Use GitHub App Token (Recommended for cross-organization access)
+If you need to search across multiple organizations or private repositories, use a GitHub App token with the following permissions:
+
+**Repository permissions:**
+- `pull_requests: read` - Read pull request information
+- `metadata: read` - Read repository metadata
+
+#### Option 2: Use Personal Access Token (PAT)
+For simpler setups or single-organization use, you can use a Personal Access Token with:
+- `repo` scope (for private repositories)
+- `public_repo` scope (for public repositories only)
+
+**Note:** The default `${{ github.token }}` provided by GitHub Actions may have limited scope and might not work for cross-repository searches. If you encounter issues with PR detection, consider using a GitHub App token or PAT with broader permissions.
+
+**For cross-organization access:** If you need to search across multiple organizations, install the GitHub App in each target organization and use `owner: organization-name` instead of `${{ github.repository_owner }}`.
+
+## Slack Setup
+
+### User Token (`slack_user_token`) - Required
+This token is required for searching messages. If `slack_bot_token` is not provided, this token will also be used for posting messages.
+
+Required OAuth scopes:
+- `channels:history` - Access messages in public channels
+- `reactions:read` - View emoji reactions
+- `search:read` - Search messages
+- `users:read` - View user information
+- `chat:write` - Send messages (required if not using separate bot token)
+
+### Bot Token (`slack_bot_token`) - Optional
+If you prefer to use a separate bot token for posting messages, you can provide it. Otherwise, the user token will be used.
+
+Required OAuth scopes when provided:
+- `chat:write` - Send messages
+- `channels:read` - View basic channel information
+
+## Examples
+
+### Basic usage with default GitHub token
+
+```yaml
+- uses: nakamasato/github-actions/action-required-reminder@main
+  with:
+    slack_workspace: 'your-workspace'
+    slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+    slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
+    slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
+    gh_repos: 'owner/repo1,owner/repo2'
+```
+
+### Using GitHub App token for better cross-repo access
+
+```yaml
+- name: Generate GitHub App Token
+  id: app-token
+  uses: actions/create-github-app-token@v2
+  with:
+    app-id: ${{ secrets.GH_APP_CLIENT_ID }}
+    private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+    owner: ${{ github.repository_owner }}
+
+- uses: nakamasato/github-actions/action-required-reminder@main
+  with:
+    slack_workspace: 'your-workspace'
+    slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
+    slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
+    slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
+    github_token: ${{ steps.app-token.outputs.token }}
+    gh_repos: 'owner/repo1,owner/repo2'
+```
+
+### Check specific repositories
+
+```yaml
+- uses: nakamasato/github-actions/action-required-reminder@main
+  with:
+    gh_repos: 'myorg/frontend,myorg/backend,myorg/docs'
+    slack_workspace: 'your-workspace'
+    slack_channel_id: 'C1234567890'
+    slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+    slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
+```
+
+### Check all repositories in an organization
+
+```yaml
+- uses: nakamasato/github-actions/action-required-reminder@main
+  with:
+    gh_org: 'myorg'
+    slack_workspace: 'your-workspace'
+    slack_channel_id: 'C1234567890'
+    slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+    slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
+```
+
+### Custom search period
+
+```yaml
+- uses: nakamasato/github-actions/action-required-reminder@main
+  with:
+    slack_workspace: 'your-workspace'
+    slack_channel_id: 'C1234567890'
+    slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+    slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
+    slack_search_days: '14'  # Check last 2 weeks
+```
+
+## Output Example
+
+The action posts a message to Slack like:
+
+```
+👋 This is action required reminder!
+
+📬 *Unreplied Slack messages: 3 messages*
+https://workspace.slack.com/archives/C123/p1234567890
+https://workspace.slack.com/archives/C456/p1234567891
+https://workspace.slack.com/archives/C789/p1234567892
+
+🔍 *Review Requested PR: 2 PRs*
+https://github.com/myorg/frontend/pull/123
+https://github.com/myorg/backend/pull/456
+
+Keep it up!💪
+```
+
+## Troubleshooting
+
+### No PRs detected despite having review requests
+
+If you're not seeing PRs that you know have review requests, try these steps:
+
+1. **Check token permissions**: Ensure your GitHub token has access to the repositories you're searching
+2. **Verify the username**: Make sure `github_user` matches your GitHub username exactly
+3. **Check review status**: The search only returns PRs where you're still requested as a reviewer (not already reviewed)
+4. **Test locally**: Run the script locally to see debug output:
+   ```bash
+   GH_USER=your-username GH_TOKEN=your-token ./check_not_reviewed_gh_pr.sh
+   ```
+5. **Use GitHub App token**: For cross-organization searches, use a GitHub App token instead of the default `GITHUB_TOKEN`
+
+### Debug output
+
+The scripts output debug information to stderr. Check the GitHub Actions logs for:
+- "Executing: gh search prs..." - shows the exact command being run
+- "Found X PRs" - shows how many PRs were found
+- "Found X messages mentioning..." - shows Slack message search results
