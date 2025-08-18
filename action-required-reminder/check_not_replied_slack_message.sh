@@ -114,7 +114,7 @@ main() {
         MESSAGE_TEXT=$(echo "$MESSAGE" | jq -r '.text')
 
         # Get thread_ts for threaded messages, otherwise use message ts
-        THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2)
+        THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2) || true
         if [ -n "$THREAD_TS" ]; then
             THREAD_ROOT_TS="$THREAD_TS"
         else
@@ -129,15 +129,19 @@ main() {
 
         # Check reactions only if no_reactions is not true
         if [ "$NO_REACTIONS" != "true" ]; then
+            echo "Checking reactions for message $i..." >&2
             if has_user_reaction "$CHANNEL" "$TIMESTAMP" "$SLACK_USER_ID"; then
                 HAS_REACTION=true
                 REACTED_COUNT=$((REACTED_COUNT + 1))
+                echo "Found user reaction" >&2
             fi
         fi
 
+        echo "Checking thread replies for message $i..." >&2
         if has_user_reply_in_thread "$CHANNEL" "$THREAD_ROOT_TS" "$SLACK_USER_ID" "$TIMESTAMP"; then
             HAS_REPLY=true
             REPLIED_COUNT=$((REPLIED_COUNT + 1))
+            echo "Found user reply" >&2
         fi
 
         # Add URL to unreplied list if no reaction or reply
