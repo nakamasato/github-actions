@@ -98,84 +98,92 @@ runs:
         PR_COUNT: ${{ steps.check-prs.outputs.count }}
         PR_URLS: ${{ steps.check-prs.outputs.urls }}
       run: |
-        # Build header block
-        BLOCKS='[
-          {
+        # Check if no action is required
+        if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
+          # Simple one-line message when nothing to do
+          BLOCKS='[
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "✅️ Awesome! No action required :tada:"
+              }
+            }
+          ]'
+        else
+          # Build detailed message when action is required
+          BLOCKS='[
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "👋 This is action required reminder!"
+              }
+            }
+          ]'
+
+          # Add Slack messages section
+          SLACK_SECTION='{
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "👋 This is action required reminder!"
+              "text": "📬 *Unreplied Slack messages: '$SLACK_COUNT' messages*"
             }
-          }
-        ]'
+          }'
+          BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_SECTION]")
 
-        # Add Slack messages section
-        SLACK_SECTION='{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": "📬 *Unreplied Slack messages: '$SLACK_COUNT' messages*"
-          }
-        }'
-        BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_SECTION]")
-
-        # Add Slack links if any exist
-        if [ "$SLACK_COUNT" -gt 0 ]; then
-          # Build Slack links list (filter out empty titles)
-          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
-          if [ -n "$SLACK_LINKS" ]; then
-            SLACK_LINKS_SECTION='{
-              "type": "section",
-              "text": {
-                "type": "mrkdwn",
-                "text": "'"$SLACK_LINKS"'"
-              }
-            }'
-            BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_LINKS_SECTION]")
+          # Add Slack links if any exist
+          if [ "$SLACK_COUNT" -gt 0 ]; then
+            # Build Slack links list (filter out empty titles)
+            SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+            if [ -n "$SLACK_LINKS" ]; then
+              SLACK_LINKS_SECTION='{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "'"$SLACK_LINKS"'"
+                }
+              }'
+              BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_LINKS_SECTION]")
+            fi
           fi
-        fi
 
-        # Add PR section
-        PR_SECTION='{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": "🔍 *Review Requested PR: '$PR_COUNT' PRs*"
-          }
-        }'
-        BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_SECTION]")
+          # Add PR section
+          PR_SECTION='{
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "🔍 *Review Requested PR: '$PR_COUNT' PRs*"
+            }
+          }'
+          BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_SECTION]")
 
-        # Add PR links if any exist
-        if [ "$PR_COUNT" -gt 0 ]; then
-          # Build PR links list (filter out empty titles)
-          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
-          if [ -n "$PR_LINKS" ]; then
-            PR_LINKS_SECTION='{
-              "type": "section",
-              "text": {
-                "type": "mrkdwn",
-                "text": "'"$PR_LINKS"'"
-              }
-            }'
-            BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_LINKS_SECTION]")
+          # Add PR links if any exist
+          if [ "$PR_COUNT" -gt 0 ]; then
+            # Build PR links list (filter out empty titles)
+            PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | select(.title != "" and .title != null) | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+            if [ -n "$PR_LINKS" ]; then
+              PR_LINKS_SECTION='{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "'"$PR_LINKS"'"
+                }
+              }'
+              BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_LINKS_SECTION]")
+            fi
           fi
-        fi
 
-        # Add footer
-        if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
-          FOOTER_TEXT="✨ Awesome! No action required! ✅️"
-        else
-          FOOTER_TEXT="Keep it up! 💪"
+          # Add footer
+          FOOTER_SECTION='{
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Keep it up! 💪"
+            }
+          }'
+          BLOCKS=$(echo "$BLOCKS" | jq ". += [$FOOTER_SECTION]")
         fi
-
-        FOOTER_SECTION='{
-          "type": "section",
-          "text": {
-            "type": "mrkdwn",
-            "text": "'$FOOTER_TEXT'"
-          }
-        }'
-        BLOCKS=$(echo "$BLOCKS" | jq ". += [$FOOTER_SECTION]")
 
         # Save blocks to output
         echo "blocks<<EOF" >> "$GITHUB_OUTPUT"
