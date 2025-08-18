@@ -152,10 +152,13 @@ main() {
 
         # Add URL to unreplied list if no reaction or reply
         if [ "$HAS_REACTION" = "false" ] && [ "$HAS_REPLY" = "false" ]; then
+            # Get first 50 characters of message text for link title
+            MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ')
+            SLACK_LINK="<${PERMALINK}|${MESSAGE_PREVIEW}>"
             if [ -n "$UNREPLIED_URLS" ]; then
-                UNREPLIED_URLS="${UNREPLIED_URLS}\n${PERMALINK}"
+                UNREPLIED_URLS="${UNREPLIED_URLS}\n${SLACK_LINK}"
             else
-                UNREPLIED_URLS="${PERMALINK}"
+                UNREPLIED_URLS="${SLACK_LINK}"
             fi
         fi
     done

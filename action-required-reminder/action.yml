@@ -145,6 +145,8 @@ runs:
         payload: |
           channel: ${{ inputs.slack_channel_id }}
           text: "${{ steps.build-message.outputs.message }}"
+          unfurl_links: false
+          unfurl_media: false
 
 branding:
   icon: 'check-circle'
