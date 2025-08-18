@@ -86,6 +86,17 @@ main() {
 
     # Filter to public channels only, excluding private channels
     FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false)]')
+
+    # Exclude messages from specified usernames if EXCLUDE_SLACK_USERNAMES is set
+    if [ -n "${EXCLUDE_SLACK_USERNAMES:-}" ]; then
+        echo "Excluding messages from users: $EXCLUDE_SLACK_USERNAMES" >&2
+        # Convert newline-separated usernames to JSON array for filtering
+        EXCLUDE_USERNAMES_JSON=$(echo "$EXCLUDE_SLACK_USERNAMES" | sed '/^$/d' | jq -R . | jq -s .)
+        echo "Exclude usernames JSON: $EXCLUDE_USERNAMES_JSON" >&2
+
+        # Filter out messages from excluded users
+        FILTERED_MESSAGES=$(echo "$FILTERED_MESSAGES" | jq --argjson exclude "$EXCLUDE_USERNAMES_JSON" '[.[] | select(.username as $user | ($exclude | index($user) | not))]')
+    fi
     MESSAGE_COUNT=$(echo "$FILTERED_MESSAGES" | jq 'length')
 
     echo "Found $MESSAGE_COUNT messages mentioning <@$SLACK_USER_ID> in public channels" >&2
