@@ -33,14 +33,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout scripts
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      with:
-        sparse-checkout: |
-          action-required-reminder/check_not_replied_slack_message.sh
-          action-required-reminder/check_not_reviewed_gh_pr.sh
-        sparse-checkout-cone-mode: false
-
     - name: Check unreplied Slack messages
       id: check-slack
       shell: bash
@@ -50,9 +42,9 @@ runs:
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
       run: |
-        chmod +x action-required-reminder/check_not_replied_slack_message.sh
+        chmod +x "$GITHUB_ACTION_PATH/check_not_replied_slack_message.sh"
         # Output logs to stderr and capture only URLs from stdout
-        SLACK_URLS=$(./action-required-reminder/check_not_replied_slack_message.sh 2>/dev/null)
+        SLACK_URLS=$("$GITHUB_ACTION_PATH/check_not_replied_slack_message.sh" 2>/dev/null)
 
         # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
@@ -75,8 +67,8 @@ runs:
         GH_ORG: ${{ inputs.gh_org }}
         GH_REPOS: ${{ inputs.gh_repos }}
       run: |
-        chmod +x action-required-reminder/check_not_reviewed_gh_pr.sh
-        PR_URLS=$(./action-required-reminder/check_not_reviewed_gh_pr.sh)
+        chmod +x "$GITHUB_ACTION_PATH/check_not_reviewed_gh_pr.sh"
+        PR_URLS=$("$GITHUB_ACTION_PATH/check_not_reviewed_gh_pr.sh")
 
         # Save output in JSON format
         echo "urls<<EOF" >> "$GITHUB_OUTPUT"
