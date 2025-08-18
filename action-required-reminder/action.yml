@@ -1,0 +1,113 @@
+name: 'Action Required Reminder'
+description: 'Check for unreplied Slack messages and unreviewed GitHub PRs, then send a reminder to Slack'
+author: 'nakamasato'
+
+inputs:
+  gh_org:
+    description: 'Target GitHub organization. If not specified with gh_repos, all repos will be checked'
+    required: false
+  gh_repos:
+    description: 'Target GitHub repositories (comma-separated). If specified, gh_org will be ignored'
+    required: false
+  slack_workspace:
+    description: 'Slack workspace name (subdomain part of your Slack URL)'
+    required: true
+  slack_channel_id:
+    description: 'Slack channel ID for posting reminders'
+    required: true
+  slack_bot_token:
+    description: 'Slack Bot Token for posting messages and searching messages'
+    required: true
+  slack_search_days:
+    description: 'Number of days to search for Slack messages'
+    required: false
+    default: '3'
+  slack_user_id:
+    description: 'Target Slack user ID to check for unreplied messages'
+    required: true
+  github_token:
+    description: 'GitHub Token for repository access'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout scripts
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          action-required-reminder/check_not_replied_slack_message.sh
+          action-required-reminder/check_not_reviewed_gh_pr.sh
+        sparse-checkout-cone-mode: false
+
+    - name: Check unreplied Slack messages
+      id: check-slack
+      shell: bash
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+        SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
+        SLACK_USER_ID: ${{ inputs.slack_user_id }}
+        SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
+      run: |
+        chmod +x action-required-reminder/check_not_replied_slack_message.sh
+        # ログをstderrに出力し、URLのみをstdoutから取得
+        SLACK_URLS=$(./action-required-reminder/check_not_replied_slack_message.sh 2>/dev/null)
+
+        # JSON形式で出力を保存
+        echo "urls<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$SLACK_URLS" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+        # メッセージ数をカウント
+        if [ -z "$SLACK_URLS" ]; then
+          echo "count=0" >> "$GITHUB_OUTPUT"
+        else
+          COUNT=$(echo "$SLACK_URLS" | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Check unreviewed GitHub PRs
+      id: check-prs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        GH_ORG: ${{ inputs.gh_org }}
+        GH_REPOS: ${{ inputs.gh_repos }}
+      run: |
+        chmod +x action-required-reminder/check_not_reviewed_gh_pr.sh
+        PR_URLS=$(./action-required-reminder/check_not_reviewed_gh_pr.sh)
+
+        # JSON形式で出力を保存
+        echo "urls<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$PR_URLS" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+        # PR数をカウント
+        if [ -z "$PR_URLS" ]; then
+          echo "count=0" >> "$GITHUB_OUTPUT"
+        else
+          COUNT=$(echo "$PR_URLS" | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Post reminder to Slack
+      uses: slackapi/slack-github-action@v2.0.0
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+      with:
+        channel-id: ${{ inputs.slack_channel_id }}
+        slack-message: |
+          👋 <@${{ inputs.slack_user_id }}> さん、要アクションリマインダーです！
+
+          ${{ steps.check-slack.outputs.count > 0 && format('📬 *未返信のSlackメッセージ: {0}件*', steps.check-slack.outputs.count) || '' }}
+          ${{ steps.check-slack.outputs.count > 0 && steps.check-slack.outputs.urls || '' }}
+
+          ${{ steps.check-prs.outputs.count > 0 && format('🔍 *レビュー待ちのPR: {0}件*', steps.check-prs.outputs.count) || '' }}
+          ${{ steps.check-prs.outputs.count > 0 && steps.check-prs.outputs.urls || '' }}
+
+          ${{ steps.check-slack.outputs.count == 0 && steps.check-prs.outputs.count == 0 && '✨ 素晴らしい！すべてのタスクが完了しています！' || '今日も頑張りましょう！💪' }}
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
