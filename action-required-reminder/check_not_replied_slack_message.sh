@@ -85,7 +85,7 @@ main() {
     fi
 
     # Process messages from search results
-    UNREPLIED_URLS=""
+    UNREPLIED_MESSAGES="[]"
 
     # Filter to public channels only, excluding private channels
     # Also exclude bot messages if EXCLUDE_BOT is true
@@ -154,12 +154,8 @@ main() {
         if [ "$HAS_REACTION" = "false" ] && [ "$HAS_REPLY" = "false" ]; then
             # Get first 50 characters of message text for link title
             MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ')
-            SLACK_LINK="<${PERMALINK}|${MESSAGE_PREVIEW}>"
-            if [ -n "$UNREPLIED_URLS" ]; then
-                UNREPLIED_URLS="${UNREPLIED_URLS}\n${SLACK_LINK}"
-            else
-                UNREPLIED_URLS="${SLACK_LINK}"
-            fi
+            # Add to JSON array
+            UNREPLIED_MESSAGES=$(echo "$UNREPLIED_MESSAGES" | jq --arg url "$PERMALINK" --arg title "$MESSAGE_PREVIEW" '. + [{"url": $url, "title": $title}]')
         fi
     done
 
@@ -168,10 +164,8 @@ main() {
     echo "Messages with thread replies: $REPLIED_COUNT" >&2
     echo "Debug: MESSAGE_COUNT=$MESSAGE_COUNT, REACTED_COUNT=$REACTED_COUNT, REPLIED_COUNT=$REPLIED_COUNT" >&2
 
-    # Output results
-    if [ -n "$UNREPLIED_URLS" ]; then
-        echo -e "$UNREPLIED_URLS"
-    fi
+    # Output results as JSON
+    echo "$UNREPLIED_MESSAGES"
 }
 
 main

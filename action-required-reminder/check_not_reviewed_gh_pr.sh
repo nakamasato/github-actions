@@ -26,8 +26,8 @@ main() {
         exit 1
     fi
 
-    # Search PRs and output URLs only
-    eval "gh search prs ${search_query} --json url --limit 100" | jq -r '.[].url'
+    # Search PRs and output as JSON
+    eval "gh search prs ${search_query} --json url,title --limit 100"
 }
 
 main

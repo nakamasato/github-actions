@@ -63,12 +63,8 @@ runs:
         echo "EOF" >> "$GITHUB_OUTPUT"
 
         # Count number of messages
-        if [ -z "$SLACK_URLS" ]; then
-          echo "count=0" >> "$GITHUB_OUTPUT"
-        else
-          COUNT=$(echo "$SLACK_URLS" | wc -l | tr -d ' ')
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-        fi
+        COUNT=$(echo "$SLACK_URLS" | jq 'length')
+        echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
     - name: Check unreviewed GitHub PRs
       id: check-prs
@@ -88,12 +84,8 @@ runs:
         echo "EOF" >> "$GITHUB_OUTPUT"
 
         # Count number of PRs
-        if [ -z "$PR_URLS" ]; then
-          echo "count=0" >> "$GITHUB_OUTPUT"
-        else
-          COUNT=$(echo "$PR_URLS" | wc -l | tr -d ' ')
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-        fi
+        COUNT=$(echo "$PR_URLS" | jq 'length')
+        echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
     - name: Build Slack message
       id: build-message
@@ -109,17 +101,19 @@ runs:
         MESSAGE="👋 <@${SLACK_USER_ID}>, this is action required reminder!"
 
         if [ "$SLACK_COUNT" -gt 0 ]; then
+          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | "<" + .url + "|" + .title + ">"' | tr '\n' '\n')
           MESSAGE="${MESSAGE}
 
         📬 *Unreplied Slack messages: ${SLACK_COUNT} messages*
-        ${SLACK_URLS}"
+        ${SLACK_LINKS}"
         fi
 
         if [ "$PR_COUNT" -gt 0 ]; then
+          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | "<" + .url + "|" + .title + ">"' | tr '\n' '\n')
           MESSAGE="${MESSAGE}
 
         🔍 *Review Requested PR: ${PR_COUNT} PRs*
-        ${PR_URLS}"
+        ${PR_LINKS}"
         fi
 
         if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
