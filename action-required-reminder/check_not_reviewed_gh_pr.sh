@@ -27,7 +27,10 @@ main() {
     fi
 
     # Search PRs and output as JSON
-    eval "gh search prs ${search_query} --json url,title --limit 100"
+    echo "Executing: gh search prs ${search_query} --json url,title --limit 100" >&2
+    local result=$(eval "gh search prs ${search_query} --json url,title --limit 100")
+    echo "Found $(echo "$result" | jq 'length') PRs" >&2
+    echo "$result"
 }
 
 main
