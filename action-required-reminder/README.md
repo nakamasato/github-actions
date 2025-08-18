@@ -28,6 +28,7 @@ jobs:
           slack_workspace: 'your-workspace'
           slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
           slack_user_id: 'U1234567890'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Optional: specify repositories
@@ -44,17 +45,24 @@ jobs:
 | `gh_repos` | Target repositories (comma-separated) | No | - |
 | `slack_workspace` | Slack workspace name | Yes | - |
 | `slack_channel_id` | Slack channel ID for reminders | Yes | - |
-| `slack_bot_token` | Slack Bot Token | Yes | - |
+| `slack_bot_token` | Slack Bot Token for posting messages | Yes | - |
+| `slack_user_token` | Slack User Token for searching messages | Yes | - |
 | `slack_search_days` | Days to search for Slack messages | No | `7` |
 | `slack_user_id` | Target Slack user ID | Yes | - |
 | `github_token` | GitHub Token | No | `${{ github.token }}` |
 
-## Slack Bot Setup
+## Slack Setup
 
-Your Slack bot needs the following OAuth scopes:
-- `channels:history` - Access messages in public channels
-- `channels:read` - View basic channel information
+You need two types of tokens:
+
+### Bot Token (`slack_bot_token`)
+For posting messages to Slack. Required OAuth scopes:
 - `chat:write` - Send messages
+- `channels:read` - View basic channel information
+
+### User Token (`slack_user_token`)
+For searching messages. Required OAuth scopes:
+- `channels:history` - Access messages in public channels
 - `reactions:read` - View emoji reactions
 - `search:read` - Search messages
 - `users:read` - View user information

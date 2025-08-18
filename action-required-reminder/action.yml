@@ -16,7 +16,10 @@ inputs:
     description: 'Slack channel ID for posting reminders'
     required: true
   slack_bot_token:
-    description: 'Slack Bot Token for posting messages and searching messages'
+    description: 'Slack Bot Token for posting messages'
+    required: true
+  slack_user_token:
+    description: 'Slack User Token for searching messages'
     required: true
   slack_search_days:
     description: 'Number of days to search for Slack messages'
@@ -37,7 +40,7 @@ runs:
       id: check-slack
       shell: bash
       env:
-        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+        SLACK_BOT_TOKEN: ${{ inputs.slack_user_token }}
         SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
