@@ -25,8 +25,15 @@ inputs:
     description: 'Number of days to search for Slack messages'
     required: false
     default: '3'
+  exclude_bot:
+    description: 'Exclude bot messages from search results'
+    required: false
+    default: 'true'
   slack_user_id:
     description: 'Target Slack user ID to check for unreplied messages'
+    required: true
+  github_user:
+    description: 'GitHub username for PR review requests (e.g., username)'
     required: true
   github_token:
     description: 'GitHub Token for repository access'
@@ -44,6 +51,7 @@ runs:
         SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
+        EXCLUDE_BOT: ${{ inputs.exclude_bot }}
       run: |
         # Output logs to stderr and capture only URLs from stdout
         echo "Running Slack message check..."
@@ -69,6 +77,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
         GH_ORG: ${{ inputs.gh_org }}
         GH_REPOS: ${{ inputs.gh_repos }}
+        GH_USER: ${{ inputs.github_user }}
       run: |
         echo "Running GitHub PR check..."
         PR_URLS=$("$GITHUB_ACTION_PATH/check_not_reviewed_gh_pr.sh")
@@ -100,22 +109,32 @@ runs:
         MESSAGE="👋 <@${SLACK_USER_ID}>, this is action required reminder!"
 
         if [ "$SLACK_COUNT" -gt 0 ]; then
-          MESSAGE="${MESSAGE}\n\n📬 *Unreplied Slack messages: ${SLACK_COUNT} messages*\n${SLACK_URLS}"
+          MESSAGE="${MESSAGE}
+
+        📬 *Unreplied Slack messages: ${SLACK_COUNT} messages*
+        ${SLACK_URLS}"
         fi
 
         if [ "$PR_COUNT" -gt 0 ]; then
-          MESSAGE="${MESSAGE}\n\n🔍 *Review Requested PR: ${PR_COUNT} PRs*\n${PR_URLS}"
+          MESSAGE="${MESSAGE}
+
+        🔍 *Review Requested PR: ${PR_COUNT} PRs*
+        ${PR_URLS}"
         fi
 
         if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
-          MESSAGE="${MESSAGE}\n\n✨ Awesome! No action required!"
+          MESSAGE="${MESSAGE}
+
+        ✨ Awesome! No action required!"
         else
-          MESSAGE="${MESSAGE}\n\nKeep it up!💪"
+          MESSAGE="${MESSAGE}
+
+        Keep it up!💪"
         fi
 
         # Save message to output
         echo "message<<EOF" >> "$GITHUB_OUTPUT"
-        echo -e "$MESSAGE" >> "$GITHUB_OUTPUT"
+        echo "$MESSAGE" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
 
     - name: Post reminder to Slack

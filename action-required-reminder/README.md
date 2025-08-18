@@ -29,6 +29,7 @@ jobs:
           slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
           slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
           slack_user_id: 'U1234567890'
+          github_user: 'your-github-username'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Optional: separate bot token for posting messages
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -49,7 +50,9 @@ jobs:
 | `slack_user_token` | Slack User Token for searching messages | Yes | - |
 | `slack_bot_token` | Slack Bot Token for posting messages | No | Uses `slack_user_token` if not provided |
 | `slack_search_days` | Days to search for Slack messages | No | `7` |
+| `exclude_bot` | Exclude bot messages from search results | No | `true` |
 | `slack_user_id` | Target Slack user ID | Yes | - |
+| `github_user` | GitHub username for PR review requests | Yes | - |
 | `github_token` | GitHub Token | No | `${{ github.token }}` |
 
 ## Slack Setup
@@ -83,6 +86,7 @@ Required OAuth scopes when provided:
     slack_channel_id: 'C1234567890'
     slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
     slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
 ```
 
 ### Check all repositories in an organization
@@ -95,6 +99,7 @@ Required OAuth scopes when provided:
     slack_channel_id: 'C1234567890'
     slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
     slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
 ```
 
 ### Custom search period
@@ -106,6 +111,7 @@ Required OAuth scopes when provided:
     slack_channel_id: 'C1234567890'
     slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
     slack_user_id: 'U1234567890'
+    github_user: 'your-github-username'
     slack_search_days: '14'  # Check last 2 weeks
 ```
 
