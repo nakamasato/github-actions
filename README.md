@@ -14,3 +14,4 @@
 1. [deploy-python-app-to-cloud-run](deploy-python-app-to-cloud-run) - Deploy Python applications to Google Cloud Run
 1. [pr-description-writer](pr-description-writer) - Automatically generate PR descriptions
 1. [monthly-project-summary-slack](monthly-project-summary-slack) - Generate monthly project summaries with Claude Code and post to Slack (supports cross-organization access)
+1. [action-required-reminder](action-required-reminder) - Check for unreplied Slack messages and unreviewed GitHub PRs, then send reminders to Slack
