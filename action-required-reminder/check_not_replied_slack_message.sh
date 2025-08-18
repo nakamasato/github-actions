@@ -12,7 +12,7 @@ set -euo pipefail
 SLACK_API_URL="https://slack.com/api"
 
 # Calculate search start date (YYYY-mm-dd format)
-SEARCH_FROM=$(date -v-${SLACK_SEARCH_DAYS}d +%Y-%m-%d)
+SEARCH_FROM=$(date -d "${SLACK_SEARCH_DAYS} days ago" +%Y-%m-%d)
 
 # Search messages
 search_messages() {
