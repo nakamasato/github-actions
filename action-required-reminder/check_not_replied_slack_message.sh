@@ -7,7 +7,6 @@ set -euo pipefail
 : "${SLACK_WORKSPACE:?SLACK_WORKSPACE is required}"
 : "${SLACK_USER_ID:?SLACK_USER_ID is required}"
 : "${SLACK_SEARCH_DAYS:=7}"
-: "${EXCLUDE_BOT:=true}"
 
 # Slack API base URL
 SLACK_API_URL="https://slack.com/api"
@@ -26,6 +25,7 @@ search_messages() {
 
     echo "$response"
 }
+
 
 # Check if message has reactions
 has_user_reaction() {
@@ -88,12 +88,7 @@ main() {
     UNREPLIED_MESSAGES="[]"
 
     # Filter to public channels only, excluding private channels
-    # Also exclude bot messages if EXCLUDE_BOT is true
-    if [ "$EXCLUDE_BOT" = "true" ]; then
-        FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false and (.user | startswith("B") | not))]')
-    else
-        FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false)]')
-    fi
+    FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false)]')
     MESSAGE_COUNT=$(echo "$FILTERED_MESSAGES" | jq 'length')
 
     echo "Found $MESSAGE_COUNT messages mentioning <@$SLACK_USER_ID> in public channels" >&2

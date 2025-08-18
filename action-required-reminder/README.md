@@ -50,7 +50,6 @@ jobs:
 | `slack_user_token` | Slack User Token for searching messages | Yes | - |
 | `slack_bot_token` | Slack Bot Token for posting messages | No | Uses `slack_user_token` if not provided |
 | `slack_search_days` | Days to search for Slack messages | No | `7` |
-| `exclude_bot` | Exclude bot messages from search results | No | `true` |
 | `slack_user_id` | Target Slack user ID | Yes | - |
 | `github_user` | GitHub username for PR review requests | Yes | - |
 | `github_token` | GitHub Token | No | `${{ github.token }}` |
@@ -174,7 +173,7 @@ Required OAuth scopes when provided:
 The action posts a message to Slack like:
 
 ```
-👋 <@U1234567890>, this is action required reminder!
+👋 This is action required reminder!
 
 📬 *Unreplied Slack messages: 3 messages*
 https://workspace.slack.com/archives/C123/p1234567890

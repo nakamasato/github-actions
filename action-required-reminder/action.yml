@@ -25,10 +25,6 @@ inputs:
     description: 'Number of days to search for Slack messages'
     required: false
     default: '3'
-  exclude_bot:
-    description: 'Exclude bot messages from search results'
-    required: false
-    default: 'true'
   slack_user_id:
     description: 'Target Slack user ID to check for unreplied messages'
     required: true
@@ -51,7 +47,6 @@ runs:
         SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}
-        EXCLUDE_BOT: ${{ inputs.exclude_bot }}
       run: |
         # Output logs to stderr and capture only URLs from stdout
         echo "Running Slack message check..."
@@ -87,48 +82,95 @@ runs:
         COUNT=$(echo "$PR_URLS" | jq 'length')
         echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
-    - name: Build Slack message
+    - name: Build Slack message blocks
       id: build-message
       shell: bash
       env:
-        SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_COUNT: ${{ steps.check-slack.outputs.count }}
         SLACK_URLS: ${{ steps.check-slack.outputs.urls }}
         PR_COUNT: ${{ steps.check-prs.outputs.count }}
         PR_URLS: ${{ steps.check-prs.outputs.urls }}
       run: |
-        # Build message
-        MESSAGE="👋 <@${SLACK_USER_ID}>, this is action required reminder!"
+        # Build header block
+        BLOCKS='[
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "👋 This is action required reminder!"
+            }
+          }
+        ]'
 
+        # Add Slack messages section if any
         if [ "$SLACK_COUNT" -gt 0 ]; then
-          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | "<" + .url + "|" + .title + ">"' | tr '\n' '\n')
-          MESSAGE="${MESSAGE}
+          SLACK_SECTION='{
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "📬 *Unreplied Slack messages: '$SLACK_COUNT' messages*"
+            }
+          }'
+          BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_SECTION]")
 
-        📬 *Unreplied Slack messages: ${SLACK_COUNT} messages*
-        ${SLACK_LINKS}"
+          # Build Slack links list
+          SLACK_LINKS=$(echo "$SLACK_URLS" | jq -r '.[] | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+          if [ -n "$SLACK_LINKS" ]; then
+            SLACK_LINKS_SECTION='{
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "'"$SLACK_LINKS"'"
+              }
+            }'
+            BLOCKS=$(echo "$BLOCKS" | jq ". += [$SLACK_LINKS_SECTION]")
+          fi
         fi
 
+        # Add PR section if any
         if [ "$PR_COUNT" -gt 0 ]; then
-          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | "<" + .url + "|" + .title + ">"' | tr '\n' '\n')
-          MESSAGE="${MESSAGE}
+          PR_SECTION='{
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "🔍 *Review Requested PR: '$PR_COUNT' PRs*"
+            }
+          }'
+          BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_SECTION]")
 
-        🔍 *Review Requested PR: ${PR_COUNT} PRs*
-        ${PR_LINKS}"
+          # Build PR links list
+          PR_LINKS=$(echo "$PR_URLS" | jq -r '.[] | "• <" + .url + "|" + (.title | gsub("[<>|]"; "")) + ">"' | tr '\n' '\n')
+          if [ -n "$PR_LINKS" ]; then
+            PR_LINKS_SECTION='{
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "'"$PR_LINKS"'"
+              }
+            }'
+            BLOCKS=$(echo "$BLOCKS" | jq ". += [$PR_LINKS_SECTION]")
+          fi
         fi
 
+        # Add footer
         if [ "$SLACK_COUNT" -eq 0 ] && [ "$PR_COUNT" -eq 0 ]; then
-          MESSAGE="${MESSAGE}
-
-        ✨ Awesome! No action required!"
+          FOOTER_TEXT="✨ Awesome! No action required!"
         else
-          MESSAGE="${MESSAGE}
-
-        Keep it up!💪"
+          FOOTER_TEXT="Keep it up!💪"
         fi
 
-        # Save message to output
-        echo "message<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$MESSAGE" >> "$GITHUB_OUTPUT"
+        FOOTER_SECTION='{
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "'$FOOTER_TEXT'"
+          }
+        }'
+        BLOCKS=$(echo "$BLOCKS" | jq ". += [$FOOTER_SECTION]")
+
+        # Save blocks to output
+        echo "blocks<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$BLOCKS" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
 
     - name: Post reminder to Slack
@@ -138,9 +180,8 @@ runs:
         token: ${{ inputs.slack_bot_token || inputs.slack_user_token }}
         payload: |
           channel: ${{ inputs.slack_channel_id }}
-          text: "${{ steps.build-message.outputs.message }}"
-          unfurl_links: false
-          unfurl_media: false
+          text: "Action required reminder"
+          blocks: ${{ steps.build-message.outputs.blocks }}
 
 branding:
   icon: 'check-circle'
