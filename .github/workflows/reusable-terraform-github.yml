@@ -114,7 +114,7 @@ jobs:
           else
             version="latest"
           fi
-          echo "terraform_version=$version" >> $GITHUB_OUTPUT
+          echo "terraform_version=$version" >> "$GITHUB_OUTPUT"
 
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
@@ -144,7 +144,7 @@ jobs:
           terraform show -json tfplan.binary > tfplan.json
           if [ "${{ inputs.save_tfplan }}" = "true" ]; then
             artifact_name="tfplan-${{ github.workflow }}-${{ inputs.project }}-${{ github.run_id }}"
-            echo "tfplan_artifact_name=$artifact_name" >> $GITHUB_OUTPUT
+            echo "tfplan_artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload Terraform Plan Artifact
