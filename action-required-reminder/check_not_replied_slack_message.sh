@@ -102,7 +102,11 @@ main() {
     REACTED_COUNT=0
 
     for i in $(seq 0 $((MESSAGE_COUNT - 1))); do
-        MESSAGE=$(echo "$FILTERED_MESSAGES" | jq ".[$i]")
+        echo "Processing message $((i + 1)) of $MESSAGE_COUNT" >&2
+        MESSAGE=$(echo "$FILTERED_MESSAGES" | jq ".[$i]") || {
+            echo "Error: Failed to parse message $i" >&2
+            continue
+        }
         CHANNEL=$(echo "$MESSAGE" | jq -r '.channel.id')
         TIMESTAMP=$(echo "$MESSAGE" | jq -r '.ts')
         PERMALINK=$(echo "$MESSAGE" | jq -r '.permalink')
@@ -149,8 +153,7 @@ main() {
     # Output summary to log
     echo "Messages with emoji reactions: $REACTED_COUNT" >&2
     echo "Messages with thread replies: $REPLIED_COUNT" >&2
-    UNREPLIED_COUNT=$((MESSAGE_COUNT - REACTED_COUNT - REPLIED_COUNT))
-    echo "Unreplied messages: $UNREPLIED_COUNT" >&2
+    echo "Debug: MESSAGE_COUNT=$MESSAGE_COUNT, REACTED_COUNT=$REACTED_COUNT, REPLIED_COUNT=$REPLIED_COUNT" >&2
 
     # Output results
     if [ -n "$UNREPLIED_URLS" ]; then
