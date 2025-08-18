@@ -40,7 +40,7 @@ runs:
       id: check-slack
       shell: bash
       env:
-        SLACK_BOT_TOKEN: ${{ inputs.slack_user_token }}
+        SLACK_USER_TOKEN: ${{ inputs.slack_user_token }}
         SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_SEARCH_DAYS: ${{ inputs.slack_search_days }}

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Check required environment variables
-: "${SLACK_BOT_TOKEN:?SLACK_BOT_TOKEN is required}"
+: "${SLACK_USER_TOKEN:?SLACK_USER_TOKEN is required}"
 : "${SLACK_WORKSPACE:?SLACK_WORKSPACE is required}"
 : "${SLACK_USER_ID:?SLACK_USER_ID is required}"
 : "${SLACK_SEARCH_DAYS:=7}"
@@ -18,7 +18,7 @@ SEARCH_FROM=$(date -d "${SLACK_SEARCH_DAYS} days ago" +%Y-%m-%d)
 search_messages() {
     local query="<@${1}> after:${SEARCH_FROM}"
     local response=$(curl -s -X GET "${SLACK_API_URL}/search.messages" \
-        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Authorization: Bearer ${SLACK_USER_TOKEN}" \
         -G \
         --data-urlencode "query=${query}" \
         --data-urlencode "count=100")
@@ -33,7 +33,7 @@ has_user_reaction() {
     local user_id="$3"
 
     local response=$(curl -s -X GET "${SLACK_API_URL}/reactions.get" \
-        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Authorization: Bearer ${SLACK_USER_TOKEN}" \
         -G \
         --data-urlencode "channel=${channel}" \
         --data-urlencode "timestamp=${timestamp}")
@@ -55,7 +55,7 @@ has_user_reply_in_thread() {
     local mention_ts="$4"
 
     local response=$(curl -s -X GET "${SLACK_API_URL}/conversations.replies" \
-        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Authorization: Bearer ${SLACK_USER_TOKEN}" \
         -G \
         --data-urlencode "channel=${channel}" \
         --data-urlencode "ts=${thread_ts}")
