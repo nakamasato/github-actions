@@ -35,6 +35,9 @@ inputs:
     description: 'GitHub Token for repository access'
     required: false
     default: ${{ github.token }}
+  exclude_slack_usernames:
+    description: 'Slack usernames to exclude from message checks (newline-separated)'
+    required: false
 
 runs:
   using: 'composite'
@@ -54,6 +57,7 @@ runs:
         SLACK_WORKSPACE: ${{ inputs.slack_workspace }}
         SLACK_USER_ID: ${{ inputs.slack_user_id }}
         SLACK_START_DATE: ${{ steps.calc-date.outputs.start_date }}
+        EXCLUDE_SLACK_USERNAMES: ${{ inputs.exclude_slack_usernames }}
       run: |
         # Output logs to stderr and capture only URLs from stdout
         echo "Running Slack message check..."

@@ -26,6 +26,7 @@ main() {
         exit 1
     fi
 
+
     # Search PRs and output as JSON
     eval "gh search prs ${search_query} --json url,title --limit 100"
 }
