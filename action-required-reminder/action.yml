@@ -16,10 +16,10 @@ inputs:
     description: 'Slack channel ID for posting reminders'
     required: true
   slack_bot_token:
-    description: 'Slack Bot Token for posting messages'
-    required: true
+    description: 'Slack Bot Token for posting messages (optional, uses slack_user_token if not provided)'
+    required: false
   slack_user_token:
-    description: 'Slack User Token for searching messages'
+    description: 'Slack User Token for searching messages (required)'
     required: true
   slack_search_days:
     description: 'Number of days to search for Slack messages'
@@ -55,8 +55,8 @@ runs:
         echo "Slack check completed with exit code: $SLACK_EXIT_CODE"
 
         if [ $SLACK_EXIT_CODE -ne 0 ]; then
-          echo "Warning: Slack message check failed, continuing with empty results"
-          SLACK_URLS=""
+          echo "Error: Slack message check failed"
+          exit 1
         fi
 
         # Save output in JSON format
@@ -89,8 +89,8 @@ runs:
         echo "PR check completed with exit code: $PR_EXIT_CODE"
 
         if [ $PR_EXIT_CODE -ne 0 ]; then
-          echo "Warning: GitHub PR check failed, continuing with empty results"
-          PR_URLS=""
+          echo "Error: GitHub PR check failed"
+          exit 1
         fi
 
         # Save output in JSON format
@@ -142,7 +142,7 @@ runs:
       uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
       with:
         method: chat.postMessage
-        token: ${{ inputs.slack_bot_token }}
+        token: ${{ inputs.slack_bot_token || inputs.slack_user_token }}
         payload: |
           channel: ${{ inputs.slack_channel_id }}
           text: "${{ steps.build-message.outputs.message }}"

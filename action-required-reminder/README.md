@@ -27,10 +27,11 @@ jobs:
         with:
           slack_workspace: 'your-workspace'
           slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           slack_user_token: ${{ secrets.SLACK_USER_TOKEN }}
           slack_user_id: 'U1234567890'
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: separate bot token for posting messages
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           # Optional: specify repositories
           gh_repos: 'owner/repo1,owner/repo2'
           # Or specify organization (ignored if gh_repos is set)
@@ -45,27 +46,30 @@ jobs:
 | `gh_repos` | Target repositories (comma-separated) | No | - |
 | `slack_workspace` | Slack workspace name | Yes | - |
 | `slack_channel_id` | Slack channel ID for reminders | Yes | - |
-| `slack_bot_token` | Slack Bot Token for posting messages | Yes | - |
 | `slack_user_token` | Slack User Token for searching messages | Yes | - |
+| `slack_bot_token` | Slack Bot Token for posting messages | No | Uses `slack_user_token` if not provided |
 | `slack_search_days` | Days to search for Slack messages | No | `7` |
 | `slack_user_id` | Target Slack user ID | Yes | - |
 | `github_token` | GitHub Token | No | `${{ github.token }}` |
 
 ## Slack Setup
 
-You need two types of tokens:
+### User Token (`slack_user_token`) - Required
+This token is required for searching messages. If `slack_bot_token` is not provided, this token will also be used for posting messages.
 
-### Bot Token (`slack_bot_token`)
-For posting messages to Slack. Required OAuth scopes:
-- `chat:write` - Send messages
-- `channels:read` - View basic channel information
-
-### User Token (`slack_user_token`)
-For searching messages. Required OAuth scopes:
+Required OAuth scopes:
 - `channels:history` - Access messages in public channels
 - `reactions:read` - View emoji reactions
 - `search:read` - Search messages
 - `users:read` - View user information
+- `chat:write` - Send messages (required if not using separate bot token)
+
+### Bot Token (`slack_bot_token`) - Optional
+If you prefer to use a separate bot token for posting messages, you can provide it. Otherwise, the user token will be used.
+
+Required OAuth scopes when provided:
+- `chat:write` - Send messages
+- `channels:read` - View basic channel information
 
 ## Examples
 
