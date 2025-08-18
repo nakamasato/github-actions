@@ -114,6 +114,9 @@ main() {
         NO_REACTIONS=$(echo "$MESSAGE" | jq -r '.no_reactions // false')
         MESSAGE_TEXT=$(echo "$MESSAGE" | jq -r '.text')
 
+        # Debug: Show full message JSON
+        echo "Debug: Full message JSON: $MESSAGE" >&2
+
         # Get thread_ts for threaded messages, otherwise use message ts
         THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2) || true
         if [ -n "$THREAD_TS" ]; then
@@ -147,8 +150,19 @@ main() {
 
         # Add URL to unreplied list if no reaction or reply
         if [ "$HAS_REACTION" = "false" ] && [ "$HAS_REPLY" = "false" ]; then
+            # Debug: Show raw message text
+            echo "Debug: Raw MESSAGE_TEXT for $PERMALINK: '$MESSAGE_TEXT'" >&2
+
             # Get first 50 characters of message text for link title
-            MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ')
+            MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+
+            # If message preview is empty, use a fallback
+            if [ -z "$MESSAGE_PREVIEW" ] || [ "$MESSAGE_PREVIEW" = " " ]; then
+                MESSAGE_PREVIEW="Slack message $(date -d @$(echo $TIMESTAMP | cut -d'.' -f1) +%m/%d)"
+            fi
+
+            echo "Debug: MESSAGE_PREVIEW: '$MESSAGE_PREVIEW'" >&2
+
             # Add to JSON array
             UNREPLIED_MESSAGES=$(echo "$UNREPLIED_MESSAGES" | jq --arg url "$PERMALINK" --arg title "$MESSAGE_PREVIEW" '. + [{"url": $url, "title": $title}]')
         fi
