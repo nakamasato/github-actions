@@ -84,8 +84,12 @@ main() {
     # Process messages from search results
     UNREPLIED_MESSAGES="[]"
 
-    # Filter to public channels only, excluding private channels
-    FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq '[.messages.matches[] | select(.channel.is_private == false)]')
+    # Debug: Show all messages before filtering
+    echo "Debug: All messages from search:" >&2
+    echo "$SEARCH_RESULT" | jq '.messages.matches[] | {permalink: .permalink, text: .text[0:100], username: .username, is_private: .channel.is_private}' >&2
+
+    # Filter messages: exclude private channels and ensure text contains the mention
+    FILTERED_MESSAGES=$(echo "$SEARCH_RESULT" | jq --arg user_id "@${SLACK_USER_ID}" '[.messages.matches[] | select(.channel.is_private == false and (.text | contains($user_id)))]')
 
     # Exclude messages from specified usernames if EXCLUDE_SLACK_USERNAMES is set
     if [ -n "${EXCLUDE_SLACK_USERNAMES:-}" ]; then
@@ -126,7 +130,7 @@ main() {
         MESSAGE_BLOCK_TEXT=$(echo "$MESSAGE" | jq -r '[.blocks[0:2][]? | select(.text?.text) | .text.text] | join(" ")' 2>/dev/null || echo "")
 
         # Debug: Show full message JSON
-        echo "Debug: Full message JSON: $MESSAGE" >&2
+        # echo "Debug: Full message JSON: $MESSAGE" >&2
 
         # Get thread_ts for threaded messages, otherwise use message ts
         THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2) || true
