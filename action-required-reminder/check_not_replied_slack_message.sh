@@ -130,7 +130,7 @@ main() {
         MESSAGE_BLOCK_TEXT=$(echo "$MESSAGE" | jq -r '[.blocks[0:2][]? | select(.text?.text) | .text.text] | join(" ")' 2>/dev/null || echo "")
 
         # Debug: Show full message JSON
-        echo "Debug: Full message JSON: $MESSAGE" >&2
+        # echo "Debug: Full message JSON: $MESSAGE" >&2
 
         # Get thread_ts for threaded messages, otherwise use message ts
         THREAD_TS=$(echo "$PERMALINK" | grep -o 'thread_ts=[0-9.]*' | cut -d'=' -f2) || true
