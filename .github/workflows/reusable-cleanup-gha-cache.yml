@@ -1,30 +1,36 @@
-name: cleanup-gha-cache
+name: cleanup-cache-with-gh
 on:
   pull_request:
     types:
       - closed
   workflow_call:
-
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      - name: Cleanup caches by branch
+      - name: Cleanup PR caches
         run: |
-          gh extension install actions/gh-actions-cache
-          
           REPO=${{ github.repository }}
-          BRANCH="refs/pull/${{ github.event.pull_request.number }}/merge"
+          PR_REF="refs/pull/${{ github.event.pull_request.number }}/merge"
           
-          echo "Fetching list of cache keys for branch $BRANCH"
-          cacheKeys=$(gh actions-cache list -R $REPO -B $BRANCH | cut -f 1)
+          echo "Fetching caches for PR #${{ github.event.pull_request.number }}"
           
-          for cacheKey in $cacheKeys
-          do
-            echo "Deleting cache: $cacheKey"
-            gh actions-cache delete $cacheKey -R $REPO -B $BRANCH --confirm
+          # キャッシュリストを取得し、各キャッシュIDを削除
+          gh cache list \
+            --repo $REPO \
+            --ref "$PR_REF" \
+            --limit 100 \
+            --json id \
+            --jq '.[].id' | \
+          while read cache_id; do
+            if [ -n "$cache_id" ]; then
+              echo "Deleting cache ID: $cache_id"
+              gh cache delete "$cache_id" --repo $REPO
+            fi
           done
+          
+          echo "Cache cleanup completed for PR #${{ github.event.pull_request.number }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
