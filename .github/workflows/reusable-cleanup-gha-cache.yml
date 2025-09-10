@@ -1,4 +1,4 @@
-name: cleanup-cache-with-gh
+name: cleanup-gha-cache
 on:
   pull_request:
     types:
@@ -14,23 +14,23 @@ jobs:
         run: |
           REPO=${{ github.repository }}
           PR_REF="refs/pull/${{ github.event.pull_request.number }}/merge"
-          
+
           echo "Fetching caches for PR #${{ github.event.pull_request.number }}"
-          
+
           # キャッシュリストを取得し、各キャッシュIDを削除
           gh cache list \
-            --repo $REPO \
+            --repo "$REPO" \
             --ref "$PR_REF" \
             --limit 100 \
             --json id \
             --jq '.[].id' | \
-          while read cache_id; do
+          while IFS= read -r cache_id; do
             if [ -n "$cache_id" ]; then
               echo "Deleting cache ID: $cache_id"
-              gh cache delete "$cache_id" --repo $REPO
+              gh cache delete "$cache_id" --repo "$REPO"
             fi
           done
-          
+
           echo "Cache cleanup completed for PR #${{ github.event.pull_request.number }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
