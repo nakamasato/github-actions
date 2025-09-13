@@ -83,7 +83,7 @@ runs:
   using: 'composite'
   steps:
     - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v3
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
       id: auth
       with:
         workload_identity_provider: ${{ inputs.workload_identity_provider }}
@@ -91,7 +91,7 @@ runs:
         token_format: access_token
 
     - name: Setup Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
 
     - name: Determine deployment strategy
       id: strategy
@@ -111,7 +111,7 @@ runs:
 
     - name: Deploy to Cloud Run
       id: deploy
-      uses: google-github-actions/deploy-cloudrun@v2
+      uses: google-github-actions/deploy-cloudrun@251330ba9a8a34bfbc1622895f42e1d53fd14522 # v2.7.6
       with:
         service: ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}
         image: ${{ inputs.image }}
@@ -222,7 +222,7 @@ runs:
 
     - name: Comment on PR (create or update)
       if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'pr' && inputs.github_token != ''
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
       with:
         github-token: ${{ inputs.github_token }}
         script: |
