@@ -1,0 +1,331 @@
+name: 'Enhanced Cloud Run Deploy'
+description: 'Deploy to Google Cloud Run with advanced PR and traffic management features'
+author: 'nakamasato'
+
+inputs:
+  service:
+    description: 'Cloud Run service name'
+    required: true
+  image:
+    description: 'Container image URL'
+    required: true
+  region:
+    description: 'Google Cloud region'
+    required: true
+  project_id:
+    description: 'Google Cloud project ID'
+    required: true
+  environment:
+    description: 'Deployment environment (dev, staging, prod)'
+    required: false
+    default: 'dev'
+  workload_identity_provider:
+    description: 'Workload Identity Provider for authentication'
+    required: true
+  service_account:
+    description: 'Service account email for authentication'
+    required: true
+  cpu:
+    description: 'CPU allocation'
+    required: false
+    default: '1'
+  memory:
+    description: 'Memory allocation'
+    required: false
+    default: '512Mi'
+  max_instances:
+    description: 'Maximum number of instances'
+    required: false
+    default: '10'
+  min_instances:
+    description: 'Minimum number of instances'
+    required: false
+    default: '0'
+  timeout:
+    description: 'Request timeout in seconds'
+    required: false
+    default: '300'
+  env_vars:
+    description: 'Environment variables in KEY=VALUE format (one per line)'
+    required: false
+  secrets:
+    description: 'Secrets in KEY=SECRET_NAME format (one per line)'
+    required: false
+  health_check_path:
+    description: 'Health check endpoint path'
+    required: false
+    default: '/api/health'
+  health_check_timeout:
+    description: 'Health check timeout in seconds'
+    required: false
+    default: '30'
+  cleanup_old_revisions:
+    description: 'Keep only the latest N revisions'
+    required: false
+    default: '5'
+  github_token:
+    description: 'GitHub token for PR comments (required for PR deployments)'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  url:
+    description: 'Service URL'
+    value: ${{ steps.deploy.outputs.url }}
+  revision:
+    description: 'Deployed revision name'
+    value: ${{ steps.deploy.outputs.revision }}
+  pr_url:
+    description: 'PR-specific URL (only for PR deployments)'
+    value: ${{ steps.set-outputs.outputs.pr_url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v3
+      id: auth
+      with:
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        service_account: ${{ inputs.service_account }}
+        token_format: access_token
+
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Determine deployment strategy
+      id: strategy
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "DEPLOYMENT_TYPE=pr" >> "$GITHUB_OUTPUT"
+          echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          echo "TAG=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          echo "NO_TRAFFIC=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "DEPLOYMENT_TYPE=main" >> "$GITHUB_OUTPUT"
+          echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          echo "TAG=" >> "$GITHUB_OUTPUT"
+          echo "NO_TRAFFIC=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}
+        image: ${{ inputs.image }}
+        region: ${{ inputs.region }}
+        project_id: ${{ inputs.project_id }}
+        tag: ${{ steps.strategy.outputs.TAG }}
+        no_traffic: ${{ steps.strategy.outputs.NO_TRAFFIC }}
+        cpu: ${{ inputs.cpu }}
+        memory: ${{ inputs.memory }}
+        timeout: ${{ inputs.timeout }}
+        max_instances: ${{ inputs.max_instances }}
+        min_instances: ${{ inputs.min_instances }}
+        env_vars: ${{ inputs.env_vars }}
+        secrets: ${{ inputs.secrets }}
+
+    - name: Set traffic for main branch deployment
+      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'main'
+      shell: bash
+      run: |
+        echo "🚀 Setting 100% traffic to latest revision..."
+        gcloud run services update-traffic ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} \
+          --to-latest \
+          --region ${{ inputs.region }} \
+          --project ${{ inputs.project_id }}
+        echo "✅ Traffic updated successfully"
+
+    - name: Run health check
+      shell: bash
+      run: |
+        SERVICE_URL="${{ steps.deploy.outputs.url }}"
+        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
+          # For PR deployments, construct the tagged URL
+          SERVICE_URL="${{ steps.deploy.outputs.url }}"
+          # Replace the service URL with the tagged version
+          BASE_URL=$(echo "$SERVICE_URL" | sed 's|https://||')
+          TAGGED_URL="https://${{ steps.strategy.outputs.TAG }}---${BASE_URL}"
+          SERVICE_URL="$TAGGED_URL"
+        fi
+
+        HEALTH_URL="${SERVICE_URL}${{ inputs.health_check_path }}"
+        echo "🏥 Health check URL: $HEALTH_URL"
+
+        COUNT=0
+        MAX_COUNT=$(( ${{ inputs.health_check_timeout }} / 3 ))
+
+        echo "⏳ Waiting for service to be ready..."
+        until curl -sf "$HEALTH_URL" > /dev/null 2>&1 || [ $COUNT -ge $MAX_COUNT ]; do
+          COUNT=$((COUNT + 1))
+          echo "Retrying in 3 seconds... (${COUNT}/${MAX_COUNT})"
+          sleep 3
+        done
+
+        if [ $COUNT -ge $MAX_COUNT ]; then
+          echo "❌ Health check failed after ${{ inputs.health_check_timeout }} seconds"
+          echo "Service URL: $SERVICE_URL"
+          echo "Health check URL: $HEALTH_URL"
+          exit 1
+        fi
+
+        echo "✅ Health check passed after $((COUNT * 3)) seconds!"
+        echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
+
+    - name: Clean up old revisions
+      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'main'
+      shell: bash
+      run: |
+        echo "🧹 Cleaning up old revisions (keeping latest ${{ inputs.cleanup_old_revisions }})..."
+
+        # Get all revisions
+        REVISIONS=$(gcloud run revisions list \
+          --service=${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} \
+          --region=${{ inputs.region }} \
+          --project=${{ inputs.project_id }} \
+          --format="value(metadata.name)" \
+          --sort-by="~metadata.creationTimestamp")
+
+        # Skip the first N revisions (keep them)
+        REVISIONS_TO_DELETE=$(echo "$REVISIONS" | tail -n +$(( ${{ inputs.cleanup_old_revisions }} + 1 )))
+
+        if [ -n "$REVISIONS_TO_DELETE" ]; then
+          echo "Deleting old revisions:"
+          echo "$REVISIONS_TO_DELETE"
+
+          echo "$REVISIONS_TO_DELETE" | while read -r revision; do
+            if [ -n "$revision" ]; then
+              gcloud run revisions delete "$revision" \
+                --region=${{ inputs.region }} \
+                --project=${{ inputs.project_id }} \
+                --quiet
+              echo "Deleted revision: $revision"
+            fi
+          done
+        else
+          echo "No old revisions to clean up"
+        fi
+
+    - name: Set outputs
+      id: set-outputs
+      shell: bash
+      run: |
+        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
+          BASE_URL=$(echo "${{ steps.deploy.outputs.url }}" | sed 's|https://||')
+          TAGGED_URL="https://${{ steps.strategy.outputs.TAG }}---${BASE_URL}"
+          echo "pr_url=$TAGGED_URL" >> "$GITHUB_OUTPUT"
+        else
+          echo "pr_url=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Comment on PR (create or update)
+      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'pr' && inputs.github_token != ''
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const commentMarker = '<!-- deploy-cloudrun-comment -->';
+          const prUrl = '${{ steps.set-outputs.outputs.pr_url }}';
+          const serviceUrl = '${{ steps.deploy.outputs.url }}';
+          const revision = '${{ steps.deploy.outputs.revision }}';
+          const environment = '${{ inputs.environment }}';
+          const tag = '${{ steps.strategy.outputs.TAG }}';
+          const service = '${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}';
+          const region = '${{ inputs.region }}';
+          const image = '${{ inputs.image }}';
+
+          const comment = `${commentMarker}
+          ## 🚀 Cloud Run Deployment Preview
+
+          Your PR has been deployed to Cloud Run!
+
+          **🌐 Preview URL:** ${prUrl}
+          **📍 Environment:** ${environment}
+          **🏷️ Revision:** ${revision}
+
+          > ⚠️ This deployment receives **0% traffic** and is only accessible via the preview URL above.
+
+          <details>
+          <summary>📋 Deployment Details</summary>
+
+          | Property | Value |
+          |----------|-------|
+          | **Service** | ${service} |
+          | **Region** | ${region} |
+          | **Tag** | ${tag} |
+          | **Image** | ${image} |
+          | **Service URL** | ${serviceUrl} |
+          | **Traffic Allocation** | 0% (tagged deployment) |
+
+          </details>
+
+          <details>
+          <summary>🔗 Useful Links</summary>
+
+          - [Cloud Run Console](https://console.cloud.google.com/run/detail/${region}/${service}?project=${{ inputs.project_id }})
+          - [Service Logs](https://console.cloud.google.com/logs/query;query=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22${service}%22?project=${{ inputs.project_id }})
+
+          </details>
+
+          ---
+          *Last updated: ${new Date().toISOString()}*`;
+
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.body && comment.body.includes(commentMarker)
+          );
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: comment
+            });
+            console.log('Updated existing PR comment');
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+            console.log('Created new PR comment');
+          }
+
+    - name: Output deployment summary
+      shell: bash
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment Type | ${{ steps.strategy.outputs.DEPLOYMENT_TYPE }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Image | ${{ inputs.image }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Service URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
+          echo "| PR URL | ${{ steps.set-outputs.outputs.pr_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Traffic Allocation | 0% (tagged as ${{ steps.strategy.outputs.TAG }}) |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Traffic Allocation | 100% |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
+
+branding:
+  icon: 'cloud'
+  color: 'blue'
