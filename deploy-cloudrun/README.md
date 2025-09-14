@@ -109,7 +109,7 @@ jobs:
           environment: ${{ steps.env.outputs.ENVIRONMENT }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  cleanup-pr-deployment:
+  cleanup-pr-traffic-tag:
     # Clean up PR deployments when PR is closed
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
