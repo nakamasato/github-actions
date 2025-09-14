@@ -119,6 +119,12 @@ jobs:
       pull-requests: write  # Required for PR comments
 
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_POOL_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
       - name: Cleanup PR deployment
         uses: nakamasato/github-actions/cleanup-cloudrun-traffic-tag@main
         with:
