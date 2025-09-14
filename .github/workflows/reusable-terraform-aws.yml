@@ -65,7 +65,7 @@ jobs:
             v2-aqua-installer-${{runner.os}}-${{runner.arch}}-
 
       - name: install aqua
-        uses: aquaproj/aqua-installer@d1fe50798dbadd4eb5b98957290ca175f6b4870f # v4.0.2
+        uses: aquaproj/aqua-installer@ea518c135a02fc11ff8024364510c181a5c6b342 # v4.0.3
         with:
           aqua_version: v2.51.2
 
@@ -80,7 +80,7 @@ jobs:
           aqua i
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
         with:
           role-to-assume: ${{ inputs.iam_role }}
           aws-region: ${{ inputs.region }}
