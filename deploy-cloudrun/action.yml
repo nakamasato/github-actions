@@ -92,7 +92,7 @@ outputs:
     value: ${{ steps.deploy.outputs.revision }}
   pr_url:
     description: "PR-specific URL (only for PR deployments)"
-    value: ${{ steps.set-outputs.outputs.pr_url }}
+    value: ${{ github.event_name == 'pull_request' && steps.deploy.outputs.url || '' }}
 
 runs:
   using: "composite"
@@ -122,18 +122,6 @@ runs:
         gcloud_version: ${{ inputs.gcloud_version }}
         gcloud_component: ${{ inputs.gcloud_component }}
 
-    - name: Set outputs
-      id: set-outputs
-      shell: bash
-      run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          BASE_URL=$(echo "${{ steps.deploy.outputs.url }}" | sed 's|https://||')
-          TAGGED_URL="https://pr-${{ github.event.pull_request.number }}---${BASE_URL}"
-          echo "pr_url=$TAGGED_URL" >> "$GITHUB_OUTPUT"
-        else
-          echo "pr_url=" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: Comment on PR (create or update)
       if: github.event_name == 'pull_request' && inputs.github_token != ''
       uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -141,7 +129,6 @@ runs:
         github-token: ${{ inputs.github_token }}
         script: |
           const commentMarker = '<!-- deploy-cloudrun-comment -->';
-          const prUrl = '${{ steps.set-outputs.outputs.pr_url }}';
           const serviceUrl = '${{ steps.deploy.outputs.url }}';
           const revision = '${{ steps.deploy.outputs.revision }}';
           const environment = '${{ inputs.environment }}';
@@ -155,7 +142,7 @@ runs:
 
           Your PR has been deployed to Cloud Run!
 
-          **🌐 Preview URL:** ${prUrl}
+          **🌐 Preview URL:** ${serviceUrl}
           **📍 Environment:** ${environment}
           **🏷️ Revision:** ${revision}
 
@@ -231,7 +218,7 @@ runs:
         echo "| Service URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "| PR URL | ${{ steps.set-outputs.outputs.pr_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Traffic Allocation | 0% (tagged as ${{ inputs.tag }}) |" >> $GITHUB_STEP_SUMMARY
         else
           echo "| Traffic Allocation | 100% |" >> $GITHUB_STEP_SUMMARY
