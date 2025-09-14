@@ -18,21 +18,36 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_POOL_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
       - uses: nakamasato/github-actions/cleanup-cloudrun@main
         with:
-          service_name: 'my-app-pr-${{ github.event.pull_request.number }}'
+          service: 'my-app'
+          environment: 'pr'
           region: 'us-central1'
-          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: 'my-project-id'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Inputs
 
 | Name | Description | Required | Default |
 |------|-------------|----------|---------|
-| `service_name` | Name of the Cloud Run service to delete | Yes | - |
-| `region` | GCP region where the service is deployed | Yes | - |
-| `gcp_sa_key` | Service account key for authentication | Yes | - |
+| `service` | Cloud Run service name | Yes | - |
+| `region` | Google Cloud region | Yes | - |
+| `project_id` | Google Cloud project ID | Yes | - |
+| `environment` | Deployment environment | No | `dev` |
+| `github_token` | GitHub token for PR comments | No | `${{ github.token }}` |
+| `pr_number` | PR number (auto-detected if not provided) | No | - |
 
 ## Outputs
 
@@ -42,7 +57,7 @@ This action does not produce any outputs.
 
 - Google Cloud Platform project with Cloud Run API enabled
 - Service account with `roles/run.admin` permission
-- The service account key stored as a GitHub secret
+- Workload Identity Federation configured for GitHub Actions authentication
 
 ## Example Workflow
 
