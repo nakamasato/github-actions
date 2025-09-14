@@ -173,7 +173,7 @@ All inputs from the base action are supported. See the [official documentation](
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `environment` | Deployment environment (dev, staging, prod) - appended to service name | | `dev` |
+| `environment` | Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified | | `dev` |
 | `github_token` | GitHub token for PR comments | | `${{ github.token }}` |
 | `no_traffic` | Deploy with no traffic allocation | | `${{ github.event_name == 'pull_request' }}` |
 | `revision_traffic` | Traffic allocation for the deployed revision | | `${{ github.event_name != 'pull_request' && 'LATEST=100' || '' }}` |
@@ -183,6 +183,7 @@ All inputs from the base action are supported. See the [official documentation](
 This action automatically configures deployments based on context:
 - **PR Deployments**: Tagged as `pr-{number}` with no traffic allocation
 - **Main Branch Deployments**: Receives 100% traffic allocation to latest revision
+- **GitHub Deployments**: When `environment` is specified, creates and updates GitHub deployment status for tracking
 
 ## Outputs
 

@@ -75,7 +75,7 @@ inputs:
 
   # Additional inputs specific to this action
   environment:
-    description: "Deployment environment (dev, staging, prod)"
+    description: "Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified"
     required: false
     default: "dev"
   github_token:
@@ -121,6 +121,25 @@ runs:
         region: ${{ inputs.region }}
         gcloud_version: ${{ inputs.gcloud_version }}
         gcloud_component: ${{ inputs.gcloud_component }}
+
+    - name: Create GitHub deployment
+      if: inputs.environment != ''
+      id: deployment
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        result-encoding: string
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: '${{ inputs.environment }}',
+            description: 'Deploy to Cloud Run ${{ inputs.environment }}',
+            auto_merge: false,
+            required_contexts: []
+          });
+          return deployment.data.id;
 
     - name: Comment on PR (create or update)
       if: github.event_name == 'pull_request' && inputs.github_token != ''
@@ -203,6 +222,35 @@ runs:
             });
             console.log('Created new PR comment');
           }
+
+    - name: Update deployment status (success)
+      if: success() && inputs.environment != '' && steps.deployment.outputs.result != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'success',
+            environment_url: '${{ steps.deploy.outputs.url }}',
+            description: 'Deployment successful'
+          });
+
+    - name: Update deployment status (failure)
+      if: failure() && inputs.environment != '' && steps.deployment.outputs.result != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'failure',
+            description: 'Deployment failed'
+          });
 
     - name: Output deployment summary
       shell: bash
