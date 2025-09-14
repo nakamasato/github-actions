@@ -3,66 +3,78 @@ description: 'Deploy to Google Cloud Run with advanced PR and traffic management
 author: 'nakamasato'
 
 inputs:
+  # Inputs passed through to google-github-actions/deploy-cloudrun@v2
   service:
     description: 'Cloud Run service name'
     required: true
   image:
     description: 'Container image URL'
     required: true
-  region:
-    description: 'Google Cloud region'
-    required: true
+  source:
+    description: 'Path to source code for deployment'
+    required: false
+  suffix:
+    description: 'Revision name suffix'
+    required: false
+  env_vars:
+    description: 'Environment variables in KEY=VALUE format (one per line)'
+    required: false
+  env_vars_update_strategy:
+    description: 'Strategy for updating environment variables'
+    required: false
+    default: 'merge'
+  secrets:
+    description: 'Secrets in KEY=SECRET_NAME format (one per line)'
+    required: false
+  secrets_update_strategy:
+    description: 'Strategy for updating secrets'
+    required: false
+    default: 'merge'
+  labels:
+    description: 'Service labels'
+    required: false
+  skip_default_labels:
+    description: 'Skip automatic GitHub Actions labels'
+    required: false
+    default: 'false'
+  tag:
+    description: 'Traffic tag for the revision'
+    required: false
+  timeout:
+    description: 'Maximum request execution time'
+    required: false
+  flags:
+    description: 'Additional Cloud Run deployment flags'
+    required: false
+  no_traffic:
+    description: 'Deploy with no traffic allocation'
+    required: false
+    default: ${{ github.event_name == 'pull_request' }}
+  revision_traffic:
+    description: 'Traffic allocation for the deployed revision'
+    required: false
+    default: ${{ github.event_name != 'pull_request' && 'LATEST=100' || '' }}
+  tag_traffic:
+    description: 'Tag traffic assignments'
+    required: false
   project_id:
     description: 'Google Cloud project ID'
     required: true
+  region:
+    description: 'Google Cloud region'
+    required: true
+  gcloud_version:
+    description: 'Cloud SDK version'
+    required: false
+  gcloud_component:
+    description: 'Cloud SDK components to install'
+    required: false
+
+  # Additional inputs specific to this action
   environment:
     description: 'Deployment environment (dev, staging, prod)'
     required: false
     default: 'dev'
-  workload_identity_provider:
-    description: 'Workload Identity Provider for authentication'
-    required: true
-  service_account:
-    description: 'Service account email for authentication'
-    required: true
-  cpu:
-    description: 'CPU allocation'
-    required: false
-    default: '1'
-  memory:
-    description: 'Memory allocation'
-    required: false
-    default: '512Mi'
-  max_instances:
-    description: 'Maximum number of instances'
-    required: false
-    default: '10'
-  min_instances:
-    description: 'Minimum number of instances'
-    required: false
-    default: '0'
-  timeout:
-    description: 'Request timeout in seconds'
-    required: false
-    default: '300'
-  env_vars:
-    description: 'Environment variables in KEY=VALUE format (one per line)'
-    required: false
-  secrets:
-    description: 'Secrets in KEY=SECRET_NAME format (one per line)'
-    required: false
-  health_check_path:
-    description: 'Health check endpoint path'
-    required: false
-    default: '/api/health'
-  health_check_timeout:
-    description: 'Health check timeout in seconds'
-    required: false
-    default: '30'
-  cleanup_old_revisions:
-    description: 'Keep only the latest N revisions'
-    required: false
-    default: '5'
   github_token:
     description: 'GitHub token for PR comments (required for PR deployments)'
     required: false
@@ -82,17 +94,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-      id: auth
-      with:
-        workload_identity_provider: ${{ inputs.workload_identity_provider }}
-        service_account: ${{ inputs.service_account }}
-        token_format: access_token
-
-    - name: Setup Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
-
     - name: Determine deployment strategy
       id: strategy
       shell: bash
@@ -101,12 +102,10 @@ runs:
           echo "DEPLOYMENT_TYPE=pr" >> "$GITHUB_OUTPUT"
           echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
           echo "TAG=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          echo "NO_TRAFFIC=true" >> "$GITHUB_OUTPUT"
         else
           echo "DEPLOYMENT_TYPE=main" >> "$GITHUB_OUTPUT"
           echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
           echo "TAG=" >> "$GITHUB_OUTPUT"
-          echo "NO_TRAFFIC=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Deploy to Cloud Run
@@ -115,98 +114,24 @@ runs:
       with:
         service: ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}
         image: ${{ inputs.image }}
-        region: ${{ inputs.region }}
-        project_id: ${{ inputs.project_id }}
-        tag: ${{ steps.strategy.outputs.TAG }}
-        no_traffic: ${{ steps.strategy.outputs.NO_TRAFFIC }}
-        cpu: ${{ inputs.cpu }}
-        memory: ${{ inputs.memory }}
-        timeout: ${{ inputs.timeout }}
-        max_instances: ${{ inputs.max_instances }}
-        min_instances: ${{ inputs.min_instances }}
+        source: ${{ inputs.source }}
+        suffix: ${{ inputs.suffix }}
         env_vars: ${{ inputs.env_vars }}
+        env_vars_update_strategy: ${{ inputs.env_vars_update_strategy }}
         secrets: ${{ inputs.secrets }}
-
-    - name: Set traffic for main branch deployment
-      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'main'
-      shell: bash
-      run: |
-        echo "🚀 Setting 100% traffic to latest revision..."
-        gcloud run services update-traffic ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} \
-          --to-latest \
-          --region ${{ inputs.region }} \
-          --project ${{ inputs.project_id }}
-        echo "✅ Traffic updated successfully"
-
-    - name: Run health check
-      shell: bash
-      run: |
-        SERVICE_URL="${{ steps.deploy.outputs.url }}"
-        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
-          # For PR deployments, construct the tagged URL
-          SERVICE_URL="${{ steps.deploy.outputs.url }}"
-          # Replace the service URL with the tagged version
-          BASE_URL=$(echo "$SERVICE_URL" | sed 's|https://||')
-          TAGGED_URL="https://${{ steps.strategy.outputs.TAG }}---${BASE_URL}"
-          SERVICE_URL="$TAGGED_URL"
-        fi
-
-        HEALTH_URL="${SERVICE_URL}${{ inputs.health_check_path }}"
-        echo "🏥 Health check URL: $HEALTH_URL"
-
-        COUNT=0
-        MAX_COUNT=$(( ${{ inputs.health_check_timeout }} / 3 ))
-
-        echo "⏳ Waiting for service to be ready..."
-        until curl -sf "$HEALTH_URL" > /dev/null 2>&1 || [ $COUNT -ge $MAX_COUNT ]; do
-          COUNT=$((COUNT + 1))
-          echo "Retrying in 3 seconds... (${COUNT}/${MAX_COUNT})"
-          sleep 3
-        done
-
-        if [ $COUNT -ge $MAX_COUNT ]; then
-          echo "❌ Health check failed after ${{ inputs.health_check_timeout }} seconds"
-          echo "Service URL: $SERVICE_URL"
-          echo "Health check URL: $HEALTH_URL"
-          exit 1
-        fi
-
-        echo "✅ Health check passed after $((COUNT * 3)) seconds!"
-        echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
-
-    - name: Clean up old revisions
-      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'main'
-      shell: bash
-      run: |
-        echo "🧹 Cleaning up old revisions (keeping latest ${{ inputs.cleanup_old_revisions }})..."
-
-        # Get all revisions
-        REVISIONS=$(gcloud run revisions list \
-          --service=${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} \
-          --region=${{ inputs.region }} \
-          --project=${{ inputs.project_id }} \
-          --format="value(metadata.name)" \
-          --sort-by="~metadata.creationTimestamp")
-
-        # Skip the first N revisions (keep them)
-        REVISIONS_TO_DELETE=$(echo "$REVISIONS" | tail -n +$(( ${{ inputs.cleanup_old_revisions }} + 1 )))
-
-        if [ -n "$REVISIONS_TO_DELETE" ]; then
-          echo "Deleting old revisions:"
-          echo "$REVISIONS_TO_DELETE"
-
-          echo "$REVISIONS_TO_DELETE" | while read -r revision; do
-            if [ -n "$revision" ]; then
-              gcloud run revisions delete "$revision" \
-                --region=${{ inputs.region }} \
-                --project=${{ inputs.project_id }} \
-                --quiet
-              echo "Deleted revision: $revision"
-            fi
-          done
-        else
-          echo "No old revisions to clean up"
-        fi
+        secrets_update_strategy: ${{ inputs.secrets_update_strategy }}
+        labels: ${{ inputs.labels }}
+        skip_default_labels: ${{ inputs.skip_default_labels }}
+        tag: ${{ steps.strategy.outputs.TAG }}
+        timeout: ${{ inputs.timeout }}
+        flags: ${{ inputs.flags }}
+        no_traffic: ${{ inputs.no_traffic }}
+        revision_traffic: ${{ inputs.revision_traffic }}
+        tag_traffic: ${{ inputs.tag_traffic }}
+        project_id: ${{ inputs.project_id }}
+        region: ${{ inputs.region }}
+        gcloud_version: ${{ inputs.gcloud_version }}
+        gcloud_component: ${{ inputs.gcloud_component }}
 
     - name: Set outputs
       id: set-outputs
