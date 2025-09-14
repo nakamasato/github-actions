@@ -87,7 +87,7 @@ runs:
         issue-number: ${{ github.event.pull_request.number }}
         edit-mode: replace
         body: |
-          ${{ inputs.pr_comment_marker }}
+          <!-- ${{ inputs.pr_comment_marker }} -->
           ## 🧹 Cloud Run Deployment Cleanup
 
           The preview deployment for this PR has been cleaned up.
