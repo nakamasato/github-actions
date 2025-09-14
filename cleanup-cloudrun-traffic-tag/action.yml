@@ -101,9 +101,6 @@ runs:
 
           ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '> 🔒 The preview URL is no longer accessible.' || '> ⚠️ Manual cleanup may be required. Please check the Cloud Run console.' }}
 
-          ---
-          *Cleanup completed: ${{ github.event.head_commit.timestamp }}*
-
     - name: Output cleanup summary
       shell: bash
       run: |
