@@ -1,0 +1,256 @@
+name: "Enhanced Cloud Run Deploy"
+description: "Deploy to Google Cloud Run with advanced PR and traffic management features"
+author: "nakamasato"
+
+inputs:
+  # Inputs passed through to google-github-actions/deploy-cloudrun@v3
+  service:
+    description: "Cloud Run service name"
+    required: true
+  image:
+    description: "Container image URL"
+    required: true
+  source:
+    description: "Path to source code for deployment"
+    required: false
+  suffix:
+    description: "Revision name suffix"
+    required: false
+  env_vars:
+    description: "Environment variables in KEY=VALUE format (one per line)"
+    required: false
+  env_vars_update_strategy:
+    description: "Strategy for updating environment variables"
+    required: false
+    default: "merge"
+  secrets:
+    description: "Secrets in KEY=SECRET_NAME format (one per line)"
+    required: false
+  secrets_update_strategy:
+    description: "Strategy for updating secrets"
+    required: false
+    default: "merge"
+  labels:
+    description: "Service labels"
+    required: false
+  skip_default_labels:
+    description: "Skip automatic GitHub Actions labels"
+    required: false
+    default: "false"
+  timeout:
+    description: "Maximum request execution time"
+    required: false
+  flags:
+    description: "Additional Cloud Run deployment flags"
+    required: false
+  tag_traffic:
+    description: "Tag traffic assignments"
+    required: false
+  project_id:
+    description: "Google Cloud project ID"
+    required: true
+  region:
+    description: "Google Cloud region"
+    required: true
+  gcloud_version:
+    description: "Cloud SDK version"
+    required: false
+  gcloud_component:
+    description: "Cloud SDK components to install"
+    required: false
+
+  # Specify default values
+  no_traffic:
+    description: "Deploy with no traffic allocation"
+    required: false
+    default: ${{ github.event_name == 'pull_request' }}
+  revision_traffic:
+    description: "Traffic allocation for the deployed revision"
+    required: false
+    default: ${{ github.event_name != 'pull_request' && 'LATEST=100' || '' }}
+  tag:
+    description: "Traffic tag for the revision"
+    required: false
+    default: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || '' }}
+
+  # Additional inputs specific to this action
+  environment:
+    description: "Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified"
+    required: false
+    default: "dev"
+  github_token:
+    description: "GitHub token for PR comments (required for PR deployments)"
+    required: false
+    default: ${{ github.token }}
+  pr_comment_marker:
+    description: "HTML comment marker to identify PR comments for updates"
+    required: false
+    default: "deploy-cloudrun-comment"
+
+outputs:
+  url:
+    description: "Service URL"
+    value: ${{ steps.deploy.outputs.url }}
+  revision:
+    description: "Deployed revision name"
+    value: ${{ steps.deploy.outputs.revision }}
+  pr_url:
+    description: "PR-specific URL (only for PR deployments)"
+    value: ${{ github.event_name == 'pull_request' && steps.deploy.outputs.url || '' }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3.0.1
+      with:
+        service: ${{ inputs.service }}
+        image: ${{ inputs.image }}
+        source: ${{ inputs.source }}
+        suffix: ${{ inputs.suffix }}
+        env_vars: ${{ inputs.env_vars }}
+        env_vars_update_strategy: ${{ inputs.env_vars_update_strategy }}
+        secrets: ${{ inputs.secrets }}
+        secrets_update_strategy: ${{ inputs.secrets_update_strategy }}
+        labels: ${{ inputs.labels }}
+        skip_default_labels: ${{ inputs.skip_default_labels }}
+        tag: ${{ inputs.tag }}
+        timeout: ${{ inputs.timeout }}
+        flags: ${{ inputs.flags }}
+        no_traffic: ${{ inputs.no_traffic }}
+        revision_traffic: ${{ inputs.revision_traffic }}
+        tag_traffic: ${{ inputs.tag_traffic }}
+        project_id: ${{ inputs.project_id }}
+        region: ${{ inputs.region }}
+        gcloud_version: ${{ inputs.gcloud_version }}
+        gcloud_component: ${{ inputs.gcloud_component }}
+
+    - name: Create GitHub deployment
+      if: inputs.environment != ''
+      id: deployment
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        result-encoding: string
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: '${{ inputs.environment }}',
+            description: 'Deploy to Cloud Run ${{ inputs.environment }}',
+            auto_merge: false,
+            required_contexts: []
+          });
+          return deployment.data.id;
+
+    - name: Find existing PR comment
+      if: github.event_name == 'pull_request' && inputs.github_token != ''
+      uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: ${{ inputs.pr_comment_marker }}
+
+    - name: Create or update PR comment
+      if: github.event_name == 'pull_request' && inputs.github_token != ''
+      uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+      with:
+        token: ${{ inputs.github_token }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        issue-number: ${{ github.event.pull_request.number }}
+        edit-mode: replace
+        body: |
+          <!-- ${{ inputs.pr_comment_marker }} -->
+          ## 🚀 Cloud Run Deployment Preview
+
+          Your PR has been deployed to Cloud Run!
+
+          **🌐 Preview URL:** ${{ steps.deploy.outputs.url }}
+          **📍 Environment:** ${{ inputs.environment }}
+          **🏷️ Revision:** ${{ steps.deploy.outputs.revision }}
+
+          > ⚠️ This deployment receives **0% traffic** and is only accessible via the preview URL above.
+
+          <details>
+          <summary>📋 Deployment Details</summary>
+
+          | Property | Value |
+          |----------|-------|
+          | **Service** | ${{ inputs.service }} |
+          | **Region** | ${{ inputs.region }} |
+          | **Tag** | ${{ inputs.tag }} |
+          | **Image** | ${{ inputs.image }} |
+          | **Service URL** | ${{ steps.deploy.outputs.url }} |
+          | **Traffic Allocation** | 0% (tagged deployment) |
+
+          </details>
+
+          <details>
+          <summary>🔗 Useful Links</summary>
+
+          - [Cloud Run Console](https://console.cloud.google.com/run/detail/${{ inputs.region }}/${{ inputs.service }}?project=${{ inputs.project_id }})
+          - [Service Logs](https://console.cloud.google.com/logs/query;query=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22${{ inputs.service }}%22?project=${{ inputs.project_id }})
+
+          </details>
+
+          ---
+          *Last updated: ${{ github.event.head_commit.timestamp }}*
+
+    - name: Update deployment status (success)
+      if: success() && inputs.environment != '' && steps.deployment.outputs.result != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'success',
+            environment_url: '${{ steps.deploy.outputs.url }}',
+            description: 'Deployment successful'
+          });
+
+    - name: Update deployment status (failure)
+      if: failure() && inputs.environment != '' && steps.deployment.outputs.result != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: '${{ steps.deployment.outputs.result }}',
+            state: 'failure',
+            description: 'Deployment failed'
+          });
+
+    - name: Output deployment summary
+      shell: bash
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | ${{ inputs.service }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment Type | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Image | ${{ inputs.image }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Service URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "| PR URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Traffic Allocation | 0% (tagged as ${{ inputs.tag }}) |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Traffic Allocation | 100% |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
+
+branding:
+  icon: "cloud"
+  color: "blue"

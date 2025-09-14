@@ -12,6 +12,8 @@
 1. [set-image-tag](set-image-tag) - Set Docker image tag for deployments
 1. [build-and-push-to-gar](build-and-push-to-gar) - Build and push Docker images to Google Artifact Registry
 1. [deploy-python-app-to-cloud-run](deploy-python-app-to-cloud-run) - Deploy Python applications to Google Cloud Run
+1. [deploy-cloudrun](deploy-cloudrun) - Enhanced Cloud Run deployment with PR preview and traffic management features
+1. [cleanup-cloudrun-traffic-tag](cleanup-cloudrun-traffic-tag) - Clean up Cloud Run traffic tags for PR deployments
 1. [pr-description-writer](pr-description-writer) - Automatically generate PR descriptions
 1. [monthly-project-summary-slack](monthly-project-summary-slack) - Generate monthly project summaries with Claude Code and post to Slack (supports cross-organization access)
 1. [action-required-reminder](action-required-reminder) - Check for unreplied Slack messages and unreviewed GitHub PRs, then send reminders to Slack

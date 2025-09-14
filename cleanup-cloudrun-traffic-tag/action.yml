@@ -1,0 +1,113 @@
+name: 'Cloud Run Traffic Tag Cleanup'
+description: 'Clean up Cloud Run traffic tags for PR deployments and update PR comments'
+author: 'nakamasato'
+
+inputs:
+  service:
+    description: 'Cloud Run service name'
+    required: true
+  region:
+    description: 'Google Cloud region'
+    required: true
+  project_id:
+    description: 'Google Cloud project ID'
+    required: true
+  tag:
+    description: 'Traffic tag to remove (e.g., pr-123)'
+    required: true
+  github_token:
+    description: 'GitHub token for PR comments'
+    required: false
+    default: ${{ github.token }}
+  pr_comment_marker:
+    description: 'HTML comment marker to identify PR comments for updates'
+    required: false
+    default: 'deploy-cloudrun-comment'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cleanup Cloud Run traffic tag
+      id: cleanup
+      shell: bash
+      run: |
+        echo "🧹 Cleaning up traffic tag: ${{ inputs.tag }}..."
+
+        TAG="${{ inputs.tag }}"
+        SERVICE_NAME="${{ inputs.service }}"
+        CLEANUP_SUCCESS="false"
+        CLEANUP_MESSAGE=""
+
+        # Check if tag exists and remove it
+        if gcloud run services describe "$SERVICE_NAME" \
+          --project "${{ inputs.project_id }}" \
+          --region "${{ inputs.region }}" \
+          --format json | jq -e ".spec.traffic[] | select(.tag==\"${TAG}\")" > /dev/null 2>&1; then
+
+          echo "🏷️ Tag ${TAG} found. Removing..."
+
+          if gcloud run services update-traffic "$SERVICE_NAME" \
+            --project "${{ inputs.project_id }}" \
+            --region "${{ inputs.region }}" \
+            --remove-tags "${TAG}" 2>/dev/null; then
+
+            CLEANUP_SUCCESS="true"
+            CLEANUP_MESSAGE="✅ Successfully removed tag '${TAG}'"
+            echo "$CLEANUP_MESSAGE"
+          else
+            CLEANUP_MESSAGE="❌ Failed to remove tag '${TAG}'"
+            echo "$CLEANUP_MESSAGE"
+          fi
+        else
+          CLEANUP_SUCCESS="true"
+          CLEANUP_MESSAGE="ℹ️ Tag ${TAG} not found (already cleaned up)"
+          echo "$CLEANUP_MESSAGE"
+        fi
+
+        echo "CLEANUP_SUCCESS=$CLEANUP_SUCCESS" >> "$GITHUB_OUTPUT"
+        echo "CLEANUP_MESSAGE=$CLEANUP_MESSAGE" >> "$GITHUB_OUTPUT"
+        echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+        echo "SERVICE_NAME=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
+
+    - name: Find existing PR comment
+      if: inputs.github_token != '' && github.event_name == 'pull_request'
+      uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: ${{ inputs.pr_comment_marker }}
+
+    - name: Update PR comment with cleanup status
+      if: inputs.github_token != '' && github.event_name == 'pull_request'
+      uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+      with:
+        token: ${{ inputs.github_token }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        issue-number: ${{ github.event.pull_request.number }}
+        edit-mode: replace
+        body: |
+          <!-- ${{ inputs.pr_comment_marker }} -->
+          ## 🧹 Cloud Run Deployment Preview
+
+          The preview deployment for this PR has been cleaned up.
+
+          ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '> 🔒 The preview URL is no longer accessible.' || '> ⚠️ Manual cleanup may be required. Please check the Cloud Run console.' }}
+
+    - name: Output cleanup summary
+      shell: bash
+      run: |
+        echo "## 🧹 Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| PR Number | #${{ github.event.pull_request.number }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | ${{ steps.cleanup.outputs.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Tag | ${{ steps.cleanup.outputs.TAG }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Status | ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}" >> $GITHUB_STEP_SUMMARY
+
+branding:
+  icon: 'trash-2'
+  color: 'red'
