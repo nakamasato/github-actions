@@ -94,25 +94,11 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Determine deployment strategy
-      id: strategy
-      shell: bash
-      run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "DEPLOYMENT_TYPE=pr" >> "$GITHUB_OUTPUT"
-          echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
-          echo "TAG=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-        else
-          echo "DEPLOYMENT_TYPE=main" >> "$GITHUB_OUTPUT"
-          echo "SERVICE_SUFFIX=-${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
-          echo "TAG=" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: Deploy to Cloud Run
       id: deploy
       uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3.0.1
       with:
-        service: ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}
+        service: ${{ inputs.service }}
         image: ${{ inputs.image }}
         source: ${{ inputs.source }}
         suffix: ${{ inputs.suffix }}
@@ -122,7 +108,7 @@ runs:
         secrets_update_strategy: ${{ inputs.secrets_update_strategy }}
         labels: ${{ inputs.labels }}
         skip_default_labels: ${{ inputs.skip_default_labels }}
-        tag: ${{ steps.strategy.outputs.TAG }}
+        tag: ${{ inputs.tag || (github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || '') }}
         timeout: ${{ inputs.timeout }}
         flags: ${{ inputs.flags }}
         no_traffic: ${{ inputs.no_traffic }}
@@ -137,16 +123,16 @@ runs:
       id: set-outputs
       shell: bash
       run: |
-        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
           BASE_URL=$(echo "${{ steps.deploy.outputs.url }}" | sed 's|https://||')
-          TAGGED_URL="https://${{ steps.strategy.outputs.TAG }}---${BASE_URL}"
+          TAGGED_URL="https://pr-${{ github.event.pull_request.number }}---${BASE_URL}"
           echo "pr_url=$TAGGED_URL" >> "$GITHUB_OUTPUT"
         else
           echo "pr_url=" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Comment on PR (create or update)
-      if: steps.strategy.outputs.DEPLOYMENT_TYPE == 'pr' && inputs.github_token != ''
+      if: github.event_name == 'pull_request' && inputs.github_token != ''
       uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
       with:
         github-token: ${{ inputs.github_token }}
@@ -156,8 +142,8 @@ runs:
           const serviceUrl = '${{ steps.deploy.outputs.url }}';
           const revision = '${{ steps.deploy.outputs.revision }}';
           const environment = '${{ inputs.environment }}';
-          const tag = '${{ steps.strategy.outputs.TAG }}';
-          const service = '${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}';
+          const tag = '${{ inputs.tag || (github.event_name == \'pull_request\' && format(\'pr-{0}\', github.event.pull_request.number) || \'\') }}';
+          const service = '${{ inputs.service }}';
           const region = '${{ inputs.region }}';
           const image = '${{ inputs.image }}';
 
@@ -234,16 +220,16 @@ runs:
         echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
         echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
         echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Service | ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | ${{ inputs.service }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Deployment Type | ${{ steps.strategy.outputs.DEPLOYMENT_TYPE }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment Type | ${{ github.event_name == 'pull_request' && 'pr' || 'main' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Image | ${{ inputs.image }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Service URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
 
-        if [ "${{ steps.strategy.outputs.DEPLOYMENT_TYPE }}" = "pr" ]; then
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
           echo "| PR URL | ${{ steps.set-outputs.outputs.pr_url }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Traffic Allocation | 0% (tagged as ${{ steps.strategy.outputs.TAG }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Traffic Allocation | 0% (tagged as pr-${{ github.event.pull_request.number }}) |" >> $GITHUB_STEP_SUMMARY
         else
           echo "| Traffic Allocation | 100% |" >> $GITHUB_STEP_SUMMARY
         fi
