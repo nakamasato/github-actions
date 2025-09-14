@@ -82,6 +82,10 @@ inputs:
     description: "GitHub token for PR comments (required for PR deployments)"
     required: false
     default: ${{ github.token }}
+  pr_comment_marker:
+    description: "HTML comment marker to identify PR comments for updates"
+    required: false
+    default: "deploy-cloudrun-comment"
 
 outputs:
   url:
@@ -147,7 +151,7 @@ runs:
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const commentMarker = '<!-- deploy-cloudrun-comment -->';
+          const commentMarker = '<!-- ${{ inputs.pr_comment_marker }} -->';
           const serviceUrl = '${{ steps.deploy.outputs.url }}';
           const revision = '${{ steps.deploy.outputs.revision }}';
           const environment = '${{ inputs.environment }}';

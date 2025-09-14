@@ -10,7 +10,7 @@ A GitHub Action that extends `google-github-actions/deploy-cloudrun@v3` with adv
 - **Flexible Configuration**: Support for environment variables, secrets, and resource limits
 - **Deployment Summary**: Rich GitHub Step Summary with deployment details
 
-## Usage
+## Example
 
 ```yaml
 name: Deploy to Cloud Run
@@ -109,32 +109,6 @@ jobs:
           environment: ${{ steps.env.outputs.ENVIRONMENT }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub deployment
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const deployment = await github.rest.repos.createDeployment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.sha,
-              environment: '${{ steps.env.outputs.ENVIRONMENT }}',
-              description: 'Deploy to Cloud Run ${{ steps.env.outputs.ENVIRONMENT }}',
-              auto_merge: false,
-              required_contexts: []
-            });
-
-            const deploymentUrl = '${{ github.event_name == "pull_request" && steps.deploy.outputs.pr_url || steps.deploy.outputs.url }}';
-
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: deployment.data.id,
-              state: 'success',
-              environment_url: deploymentUrl,
-              description: 'Deployment successful'
-            });
-
   cleanup-pr-deployment:
     # Clean up PR deployments when PR is closed
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -146,12 +120,12 @@ jobs:
 
     steps:
       - name: Cleanup PR deployment
-        uses: nakamasato/github-actions/cleanup-cloudrun@main
+        uses: nakamasato/github-actions/cleanup-cloudrun-traffic-tag@main
         with:
           service: ${{ env.SERVICE_NAME }}
+          tag: 'pr-${{ github.event.pull_request.number }}'
           region: ${{ env.REGION }}
           project_id: ${{ env.PROJECT_ID }}
-          environment: 'pr'
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -250,7 +224,7 @@ To disable PR commenting, don't provide the `github_token` input or set it to an
 
 ### Cleanup Action
 
-For PR cleanup with commenting support, see the [cleanup-cloudrun action](../cleanup-cloudrun/).
+For PR cleanup with commenting support, see the [cleanup-cloudrun-traffic-tag action](../cleanup-cloudrun-traffic-tag/).
 
 ## Prerequisites
 

@@ -1,5 +1,5 @@
-name: 'Cloud Run PR Cleanup'
-description: 'Clean up Cloud Run PR deployments and update PR comments'
+name: 'Cloud Run Traffic Tag Cleanup'
+description: 'Clean up Cloud Run traffic tags for PR deployments and update PR comments'
 author: 'nakamasato'
 
 inputs:
@@ -12,39 +12,29 @@ inputs:
   project_id:
     description: 'Google Cloud project ID'
     required: true
-  environment:
-    description: 'Deployment environment (dev, staging, prod)'
-    required: false
-    default: 'dev'
+  tag:
+    description: 'Traffic tag to remove (e.g., pr-123)'
+    required: true
   github_token:
     description: 'GitHub token for PR comments'
     required: false
     default: ${{ github.token }}
-  pr_number:
-    description: 'PR number (defaults to github.event.pull_request.number)'
+  pr_comment_marker:
+    description: 'HTML comment marker to identify PR comments for updates'
     required: false
+    default: 'deploy-cloudrun-comment'
 
 runs:
   using: 'composite'
   steps:
-    - name: Set PR number
-      id: pr
-      shell: bash
-      run: |
-        if [ -n "${{ inputs.pr_number }}" ]; then
-          echo "PR_NUMBER=${{ inputs.pr_number }}" >> "$GITHUB_OUTPUT"
-        else
-          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Cleanup Cloud Run PR revision
+    - name: Cleanup Cloud Run traffic tag
       id: cleanup
       shell: bash
       run: |
-        echo "🧹 Cleaning up revision for closed PR #${{ steps.pr.outputs.PR_NUMBER }}..."
+        echo "🧹 Cleaning up traffic tag: ${{ inputs.tag }}..."
 
-        PR_TAG="pr-${{ steps.pr.outputs.PR_NUMBER }}"
-        SERVICE_NAME="${{ inputs.service }}-${{ inputs.environment }}"
+        TAG="${{ inputs.tag }}"
+        SERVICE_NAME="${{ inputs.service }}"
         CLEANUP_SUCCESS="false"
         CLEANUP_MESSAGE=""
 
@@ -52,31 +42,31 @@ runs:
         if gcloud run services describe "$SERVICE_NAME" \
           --project "${{ inputs.project_id }}" \
           --region "${{ inputs.region }}" \
-          --format json | jq -e ".spec.traffic[] | select(.tag==\"${PR_TAG}\")" > /dev/null 2>&1; then
+          --format json | jq -e ".spec.traffic[] | select(.tag==\"${TAG}\")" > /dev/null 2>&1; then
 
-          echo "🏷️ Tag ${PR_TAG} found. Removing..."
+          echo "🏷️ Tag ${TAG} found. Removing..."
 
           if gcloud run services update-traffic "$SERVICE_NAME" \
             --project "${{ inputs.project_id }}" \
             --region "${{ inputs.region }}" \
-            --remove-tags "${PR_TAG}" 2>/dev/null; then
+            --remove-tags "${TAG}" 2>/dev/null; then
 
             CLEANUP_SUCCESS="true"
-            CLEANUP_MESSAGE="✅ Successfully removed tag '${PR_TAG}'"
+            CLEANUP_MESSAGE="✅ Successfully removed tag '${TAG}'"
             echo "$CLEANUP_MESSAGE"
           else
-            CLEANUP_MESSAGE="❌ Failed to remove tag '${PR_TAG}'"
+            CLEANUP_MESSAGE="❌ Failed to remove tag '${TAG}'"
             echo "$CLEANUP_MESSAGE"
           fi
         else
           CLEANUP_SUCCESS="true"
-          CLEANUP_MESSAGE="ℹ️ Tag ${PR_TAG} not found (already cleaned up)"
+          CLEANUP_MESSAGE="ℹ️ Tag ${TAG} not found (already cleaned up)"
           echo "$CLEANUP_MESSAGE"
         fi
 
         echo "CLEANUP_SUCCESS=$CLEANUP_SUCCESS" >> "$GITHUB_OUTPUT"
         echo "CLEANUP_MESSAGE=$CLEANUP_MESSAGE" >> "$GITHUB_OUTPUT"
-        echo "PR_TAG=$PR_TAG" >> "$GITHUB_OUTPUT"
+        echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
         echo "SERVICE_NAME=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
 
     - name: Update PR comment with cleanup status
@@ -85,11 +75,11 @@ runs:
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const commentMarker = '<!-- deploy-cloudrun-comment -->';
-          const prNumber = ${{ steps.pr.outputs.PR_NUMBER }};
+          const commentMarker = '<!-- ${{ inputs.pr_comment_marker }} -->';
+          const prNumber = ${{ github.event.pull_request.number }};
           const cleanupSuccess = '${{ steps.cleanup.outputs.CLEANUP_SUCCESS }}' === 'true';
           const cleanupMessage = '${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}';
-          const prTag = '${{ steps.cleanup.outputs.PR_TAG }}';
+          const tag = '${{ steps.cleanup.outputs.TAG }}';
           const serviceName = '${{ steps.cleanup.outputs.SERVICE_NAME }}';
           const region = '${{ inputs.region }}';
           const projectId = '${{ inputs.project_id }}';
@@ -102,7 +92,7 @@ runs:
           **Status:** ${cleanupSuccess ? '✅ Success' : '❌ Failed'}
           **Service:** ${serviceName}
           **Region:** ${region}
-          **Tag:** ${prTag}
+          **Tag:** ${tag}
 
           ${cleanupMessage}
 
@@ -120,7 +110,7 @@ runs:
           | **Service** | ${serviceName} |
           | **Region** | ${region} |
           | **Project ID** | ${projectId} |
-          | **Tag Removed** | ${prTag} |
+          | **Tag Removed** | ${tag} |
           | **Cleanup Status** | ${cleanupSuccess ? 'Success' : 'Failed'} |
 
           ${cleanupSuccess ? '' : `
@@ -180,7 +170,7 @@ runs:
         echo "| PR Number | #${{ steps.pr.outputs.PR_NUMBER }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Service | ${{ steps.cleanup.outputs.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Tag | ${{ steps.cleanup.outputs.PR_TAG }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Tag | ${{ steps.cleanup.outputs.TAG }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Status | ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}" >> $GITHUB_STEP_SUMMARY
