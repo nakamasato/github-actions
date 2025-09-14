@@ -178,7 +178,7 @@ This action automatically configures deployments based on context:
 ### Pull Request Deployments
 
 When deploying from a pull request:
-- Service name: `{service}-{environment}` (e.g., `my-app-dev`)
+- Service name: Uses the `service` input directly (e.g., `my-app-dev`)
 - Traffic allocation: **0%** (no traffic)
 - Tagged with: `pr-{number}` (e.g., `pr-123`)
 - Accessible via: Tagged URL (`https://pr-123---my-app-dev-abc123-uc.a.run.app`)
@@ -186,7 +186,7 @@ When deploying from a pull request:
 ### Main Branch Deployments
 
 When deploying from main branch:
-- Service name: `{service}-{environment}` (e.g., `my-app-prod`)
+- Service name: Uses the `service` input directly (e.g., `my-app-prod`)
 - Traffic allocation: **100%** (all traffic)
 - No tag applied
 - Accessible via: Service URL (`https://my-app-prod-abc123-uc.a.run.app`)

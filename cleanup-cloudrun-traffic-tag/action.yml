@@ -70,13 +70,13 @@ runs:
         echo "SERVICE_NAME=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
 
     - name: Update PR comment with cleanup status
-      if: inputs.github_token != ''
+      if: inputs.github_token != '' && github.event_name == 'pull_request'
       uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
       with:
         github-token: ${{ inputs.github_token }}
         script: |
           const commentMarker = '<!-- ${{ inputs.pr_comment_marker }} -->';
-          const prNumber = ${{ github.event.pull_request.number }};
+          const prNumber = ${{ github.event.number }};
           const cleanupSuccess = '${{ steps.cleanup.outputs.CLEANUP_SUCCESS }}' === 'true';
           const cleanupMessage = '${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}';
           const tag = '${{ steps.cleanup.outputs.TAG }}';
