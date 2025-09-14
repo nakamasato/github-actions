@@ -1,6 +1,6 @@
 # Enhanced Cloud Run Deploy Action
 
-A GitHub Action that extends `google-github-actions/deploy-cloudrun@v2` with advanced PR deployment and traffic management features.
+A GitHub Action that extends `google-github-actions/deploy-cloudrun@v3` with advanced PR deployment and traffic management features.
 
 ## Features
 
@@ -157,7 +157,7 @@ jobs:
 
 ## Inputs
 
-This action extends [google-github-actions/deploy-cloudrun@v2](https://github.com/google-github-actions/deploy-cloudrun) and supports all of its inputs.
+This action extends [google-github-actions/deploy-cloudrun@v3](https://github.com/google-github-actions/deploy-cloudrun) and supports all of its inputs.
 
 ### Upstream Inputs
 

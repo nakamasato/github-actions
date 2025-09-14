@@ -110,7 +110,7 @@ runs:
 
     - name: Deploy to Cloud Run
       id: deploy
-      uses: google-github-actions/deploy-cloudrun@251330ba9a8a34bfbc1622895f42e1d53fd14522 # v2.7.6
+      uses: google-github-actions/deploy-cloudrun@v3
       with:
         service: ${{ inputs.service }}${{ steps.strategy.outputs.SERVICE_SUFFIX }}
         image: ${{ inputs.image }}
