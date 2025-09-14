@@ -71,7 +71,7 @@ runs:
 
     - name: Find existing PR comment
       if: inputs.github_token != '' && github.event_name == 'pull_request'
-      uses: peter-evans/find-comment@v3
+      uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
       id: find-comment
       with:
         issue-number: ${{ github.event.pull_request.number }}
@@ -80,7 +80,7 @@ runs:
 
     - name: Update PR comment with cleanup status
       if: inputs.github_token != '' && github.event_name == 'pull_request'
-      uses: peter-evans/create-or-update-comment@v4
+      uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
       with:
         token: ${{ inputs.github_token }}
         comment-id: ${{ steps.find-comment.outputs.comment-id }}
