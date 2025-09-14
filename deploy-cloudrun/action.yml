@@ -145,29 +145,32 @@ runs:
           });
           return deployment.data.id;
 
-    - name: Comment on PR (create or update)
+    - name: Find existing PR comment
       if: github.event_name == 'pull_request' && inputs.github_token != ''
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      uses: peter-evans/find-comment@v3
+      id: find-comment
       with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const commentMarker = '<!-- ${{ inputs.pr_comment_marker }} -->';
-          const serviceUrl = '${{ steps.deploy.outputs.url }}';
-          const revision = '${{ steps.deploy.outputs.revision }}';
-          const environment = '${{ inputs.environment }}';
-          const tag = '${{ inputs.tag }}';
-          const service = '${{ inputs.service }}';
-          const region = '${{ inputs.region }}';
-          const image = '${{ inputs.image }}';
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: ${{ inputs.pr_comment_marker }}
 
-          const comment = `${commentMarker}
+    - name: Create or update PR comment
+      if: github.event_name == 'pull_request' && inputs.github_token != ''
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        token: ${{ inputs.github_token }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        issue-number: ${{ github.event.pull_request.number }}
+        edit-mode: replace
+        body: |
+          ${{ inputs.pr_comment_marker }}
           ## 🚀 Cloud Run Deployment Preview
 
           Your PR has been deployed to Cloud Run!
 
-          **🌐 Preview URL:** ${serviceUrl}
-          **📍 Environment:** ${environment}
-          **🏷️ Revision:** ${revision}
+          **🌐 Preview URL:** ${{ steps.deploy.outputs.url }}
+          **📍 Environment:** ${{ inputs.environment }}
+          **🏷️ Revision:** ${{ steps.deploy.outputs.revision }}
 
           > ⚠️ This deployment receives **0% traffic** and is only accessible via the preview URL above.
 
@@ -176,11 +179,11 @@ runs:
 
           | Property | Value |
           |----------|-------|
-          | **Service** | ${service} |
-          | **Region** | ${region} |
-          | **Tag** | ${tag} |
-          | **Image** | ${image} |
-          | **Service URL** | ${serviceUrl} |
+          | **Service** | ${{ inputs.service }} |
+          | **Region** | ${{ inputs.region }} |
+          | **Tag** | ${{ inputs.tag }} |
+          | **Image** | ${{ inputs.image }} |
+          | **Service URL** | ${{ steps.deploy.outputs.url }} |
           | **Traffic Allocation** | 0% (tagged deployment) |
 
           </details>
@@ -188,44 +191,13 @@ runs:
           <details>
           <summary>🔗 Useful Links</summary>
 
-          - [Cloud Run Console](https://console.cloud.google.com/run/detail/${region}/${service}?project=${{ inputs.project_id }})
-          - [Service Logs](https://console.cloud.google.com/logs/query;query=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22${service}%22?project=${{ inputs.project_id }})
+          - [Cloud Run Console](https://console.cloud.google.com/run/detail/${{ inputs.region }}/${{ inputs.service }}?project=${{ inputs.project_id }})
+          - [Service Logs](https://console.cloud.google.com/logs/query;query=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22${{ inputs.service }}%22?project=${{ inputs.project_id }})
 
           </details>
 
           ---
-          *Last updated: ${new Date().toISOString()}*`;
-
-          // Find existing comment
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          });
-
-          const existingComment = comments.find(comment =>
-            comment.body && comment.body.includes(commentMarker)
-          );
-
-          if (existingComment) {
-            // Update existing comment
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: existingComment.id,
-              body: comment
-            });
-            console.log('Updated existing PR comment');
-          } else {
-            // Create new comment
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: comment
-            });
-            console.log('Created new PR comment');
-          }
+          *Last updated: ${{ github.event.head_commit.timestamp }}*
 
     - name: Update deployment status (success)
       if: success() && inputs.environment != '' && steps.deployment.outputs.result != ''

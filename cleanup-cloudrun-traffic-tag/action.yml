@@ -69,97 +69,40 @@ runs:
         echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
         echo "SERVICE_NAME=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
 
+    - name: Find existing PR comment
+      if: inputs.github_token != '' && github.event_name == 'pull_request'
+      uses: peter-evans/find-comment@v3
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: ${{ inputs.pr_comment_marker }}
+
     - name: Update PR comment with cleanup status
       if: inputs.github_token != '' && github.event_name == 'pull_request'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      uses: peter-evans/create-or-update-comment@v4
       with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const commentMarker = '<!-- ${{ inputs.pr_comment_marker }} -->';
-          const prNumber = ${{ github.event.number }};
-          const cleanupSuccess = '${{ steps.cleanup.outputs.CLEANUP_SUCCESS }}' === 'true';
-          const cleanupMessage = '${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}';
-          const tag = '${{ steps.cleanup.outputs.TAG }}';
-          const serviceName = '${{ steps.cleanup.outputs.SERVICE_NAME }}';
-          const region = '${{ inputs.region }}';
-          const projectId = '${{ inputs.project_id }}';
-
-          const cleanupComment = `${commentMarker}
+        token: ${{ inputs.github_token }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        issue-number: ${{ github.event.pull_request.number }}
+        edit-mode: replace
+        body: |
+          ${{ inputs.pr_comment_marker }}
           ## 🧹 Cloud Run Deployment Cleanup
 
           The preview deployment for this PR has been cleaned up.
 
-          **Status:** ${cleanupSuccess ? '✅ Success' : '❌ Failed'}
-          **Service:** ${serviceName}
-          **Region:** ${region}
-          **Tag:** ${tag}
+          **Status:** ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '✅ Success' || '❌ Failed' }}
+          **Service:** ${{ steps.cleanup.outputs.SERVICE_NAME }}
+          **Region:** ${{ inputs.region }}
+          **Tag:** ${{ steps.cleanup.outputs.TAG }}
 
-          ${cleanupMessage}
+          ${{ steps.cleanup.outputs.CLEANUP_MESSAGE }}
 
-          ${cleanupSuccess ?
-            '> 🔒 The preview URL is no longer accessible.' :
-            '> ⚠️ Manual cleanup may be required. Please check the Cloud Run console.'
-          }
-
-          <details>
-          <summary>🔗 Cleanup Details</summary>
-
-          | Property | Value |
-          |----------|-------|
-          | **PR Number** | #${prNumber} |
-          | **Service** | ${serviceName} |
-          | **Region** | ${region} |
-          | **Project ID** | ${projectId} |
-          | **Tag Removed** | ${tag} |
-          | **Cleanup Status** | ${cleanupSuccess ? 'Success' : 'Failed'} |
-
-          ${cleanupSuccess ? '' : `
-          **Troubleshooting:**
-          - Check if you have sufficient permissions
-          - Verify the service exists in the specified region
-          - Manual cleanup: [Cloud Run Console](https://console.cloud.google.com/run/detail/${region}/${serviceName}?project=${projectId})
-          `}
-
-          </details>
+          ${{ steps.cleanup.outputs.CLEANUP_SUCCESS == 'true' && '> 🔒 The preview URL is no longer accessible.' || '> ⚠️ Manual cleanup may be required. Please check the Cloud Run console.' }}
 
           ---
-          *Cleanup completed: ${new Date().toISOString()}*`;
-
-          // Try to find and update existing comment first
-          try {
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-
-            const existingComment = comments.find(comment =>
-              comment.body && comment.body.includes(commentMarker)
-            );
-
-            if (existingComment) {
-              // Update existing comment with cleanup status
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body: cleanupComment
-              });
-              console.log('Updated existing PR comment with cleanup status');
-            } else {
-              // Create new cleanup comment if no existing comment found
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body: cleanupComment
-              });
-              console.log('Created new cleanup comment');
-            }
-          } catch (error) {
-            console.error('Failed to update PR comment:', error.message);
-            // Don't fail the action if comment update fails
-          }
+          *Cleanup completed: ${{ github.event.head_commit.timestamp }}*
 
     - name: Output cleanup summary
       shell: bash
@@ -167,7 +110,7 @@ runs:
         echo "## 🧹 Cleanup Summary" >> $GITHUB_STEP_SUMMARY
         echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
         echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| PR Number | #${{ steps.pr.outputs.PR_NUMBER }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| PR Number | #${{ github.event.pull_request.number }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Service | ${{ steps.cleanup.outputs.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Tag | ${{ steps.cleanup.outputs.TAG }} |" >> $GITHUB_STEP_SUMMARY
