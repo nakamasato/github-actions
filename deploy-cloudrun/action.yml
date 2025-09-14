@@ -197,7 +197,7 @@ runs:
           </details>
 
           ---
-          *Last updated: ${{ github.event.head_commit.timestamp }}*
+          [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
     - name: Update deployment status (success)
       if: success() && inputs.environment != '' && steps.deployment.outputs.result != ''
