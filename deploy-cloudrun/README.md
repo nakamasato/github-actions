@@ -110,8 +110,15 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   cleanup-pr-traffic-tag:
-    # Clean up PR deployments when PR is closed
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    # Clean up PR deployments
+    # - when PR with 'deploy' label is closed
+    # - when 'deploy' label is removed from pr
+    if: |
+      github.event_name == 'pull_request' &&
+      ((github.event.action == 'closed' &&
+       contains(github.event.pull_request.labels.*.name, 'deploy'))||
+       (github.event.action == 'unlabeled' &&
+       github.event.label.name == 'deploy'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
