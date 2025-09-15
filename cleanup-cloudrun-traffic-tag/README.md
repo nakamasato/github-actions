@@ -13,10 +13,16 @@ name: Cleanup Cloud Run on PR Close
 
 on:
   pull_request:
-    types: [closed]
+    types: [closed, unlabeled]
 
 jobs:
   cleanup:
+    if: |
+      github.event_name == 'pull_request' && 
+      ((github.event.action == 'closed' &&
+       contains(github.event.pull_request.labels.*.name, 'deploy'))||
+       (github.event.action == 'unlabeled' &&
+       github.event.label.name == 'deploy'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
