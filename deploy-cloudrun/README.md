@@ -114,7 +114,7 @@ jobs:
     # - when PR with 'deploy' label is closed
     # - when 'deploy' label is removed from pr
     if: |
-      github.event_name == 'pull_request' && 
+      github.event_name == 'pull_request' &&
       ((github.event.action == 'closed' &&
        contains(github.event.pull_request.labels.*.name, 'deploy'))||
        (github.event.action == 'unlabeled' &&
