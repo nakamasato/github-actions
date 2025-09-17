@@ -178,7 +178,6 @@ This action automatically configures deployments based on context:
 |--------|-------------|
 | `url` | Service URL |
 | `revision` | Deployed revision name |
-| `pr_url` | PR-specific URL (for PR deployments only) |
 
 ## Deployment Behavior
 
@@ -273,7 +272,7 @@ For PR cleanup with commenting support, see the [cleanup-cloudrun-traffic-tag ac
 
 2. **PR URLs Not Working**:
    - PR deployments receive 0% traffic by default
-   - Use the tagged URL from the `pr_url` output
+   - Use the tagged URL from the `url` output
    - Verify the service is deployed successfully
 
 ### Debugging
