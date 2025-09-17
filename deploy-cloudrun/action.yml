@@ -94,9 +94,6 @@ outputs:
   revision:
     description: "Deployed revision name"
     value: ${{ steps.deploy.outputs.revision }}
-  pr_url:
-    description: "PR-specific URL (only for PR deployments)"
-    value: ${{ github.event_name == 'pull_request' && steps.deploy.outputs.url || '' }}
 
 runs:
   using: "composite"
