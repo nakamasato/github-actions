@@ -77,7 +77,7 @@ inputs:
   environment:
     description: "Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified"
     required: false
-    default: "dev"
+    default: ""
   github_token:
     description: "GitHub token for PR comments (required for PR deployments)"
     required: false
