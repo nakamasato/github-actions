@@ -74,10 +74,6 @@ inputs:
     default: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || '' }}
 
   # Additional inputs specific to this action
-  environment:
-    description: "Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified"
-    required: false
-    default: ""
   github_token:
     description: "GitHub token for PR comments (required for PR deployments)"
     required: false
@@ -123,25 +119,6 @@ runs:
         gcloud_version: ${{ inputs.gcloud_version }}
         gcloud_component: ${{ inputs.gcloud_component }}
 
-    - name: Create GitHub deployment
-      if: inputs.environment != ''
-      id: deployment
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-      with:
-        github-token: ${{ inputs.github_token }}
-        result-encoding: string
-        script: |
-          const deployment = await github.rest.repos.createDeployment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: context.sha,
-            environment: '${{ inputs.environment }}',
-            description: 'Deploy to Cloud Run ${{ inputs.environment }}',
-            auto_merge: false,
-            required_contexts: []
-          });
-          return deployment.data.id;
-
     - name: Find existing PR comment
       if: github.event_name == 'pull_request' && inputs.github_token != ''
       uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
@@ -166,7 +143,6 @@ runs:
           Your PR has been deployed to Cloud Run!
 
           **🌐 Preview URL:** ${{ steps.deploy.outputs.url }}
-          **📍 Environment:** ${{ inputs.environment }}
           **🏷️ Revision:** ${{ steps.deploy.outputs.revision }}
 
           > ⚠️ This deployment receives **0% traffic** and is only accessible via the preview URL above.
@@ -196,34 +172,6 @@ runs:
           ---
           [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-    - name: Update deployment status (success)
-      if: success() && inputs.environment != '' && steps.deployment.outputs.result != ''
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          await github.rest.repos.createDeploymentStatus({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            deployment_id: '${{ steps.deployment.outputs.result }}',
-            state: 'success',
-            environment_url: '${{ steps.deploy.outputs.url }}',
-            description: 'Deployment successful'
-          });
-
-    - name: Update deployment status (failure)
-      if: failure() && inputs.environment != '' && steps.deployment.outputs.result != ''
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          await github.rest.repos.createDeploymentStatus({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            deployment_id: '${{ steps.deployment.outputs.result }}',
-            state: 'failure',
-            description: 'Deployment failed'
-          });
 
     - name: Output deployment summary
       shell: bash
@@ -233,7 +181,6 @@ runs:
         echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
         echo "| Service | ${{ inputs.service }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Deployment Type | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Image | ${{ inputs.image }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Service URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
