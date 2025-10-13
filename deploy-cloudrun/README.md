@@ -160,11 +160,12 @@ This action automatically configures deployments based on context:
 ## Outputs
 
 > [!WARNING]
-> The returned URL can be totally unrelated because it always returns first tag url. ref: https://github.com/google-github-actions/deploy-cloudrun/issues/589
+> The `url` can be totally unrelated because it always returns first tag url. ref: https://github.com/google-github-actions/deploy-cloudrun/issues/589
 
 | Output | Description |
 |--------|-------------|
 | `url` | Service URL |
+| `latest_revision_url`| Latest Revision URL|
 | `revision` | Deployed revision name |
 
 ## Deployment Behavior
