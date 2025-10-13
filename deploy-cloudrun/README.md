@@ -59,18 +59,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Determine environment
-        id: env
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "ENVIRONMENT=prod" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "ENVIRONMENT=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "ENVIRONMENT=pr" >> "$GITHUB_OUTPUT"
-          fi
-          echo "IMAGE_TAG=$(echo "$GITHUB_SHA" | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         id: auth
@@ -106,7 +94,6 @@ jobs:
           image: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ steps.env.outputs.IMAGE_TAG }}
           region: ${{ env.REGION }}
           project_id: ${{ env.PROJECT_ID }}
-          environment: ${{ steps.env.outputs.ENVIRONMENT }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   cleanup-pr-traffic-tag:
@@ -160,7 +147,6 @@ All inputs from the base action are supported. See the [official documentation](
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `environment` | Deployment environment (dev, staging, prod) - also creates and updates GitHub deployment status when specified | | `dev` |
 | `github_token` | GitHub token for PR comments | | `${{ github.token }}` |
 | `no_traffic` | Deploy with no traffic allocation | | `${{ github.event_name == 'pull_request' }}` |
 | `revision_traffic` | Traffic allocation for the deployed revision | | `${{ github.event_name != 'pull_request' && 'LATEST=100' || '' }}` |
@@ -170,9 +156,11 @@ All inputs from the base action are supported. See the [official documentation](
 This action automatically configures deployments based on context:
 - **PR Deployments**: Tagged as `pr-{number}` with no traffic allocation
 - **Main Branch Deployments**: Receives 100% traffic allocation to latest revision
-- **GitHub Deployments**: When `environment` is specified, creates and updates GitHub deployment status for tracking
 
 ## Outputs
+
+> [!WARNING]
+> The returned URL can be totally unrelated because it always returns first tag url. ref: https://github.com/google-github-actions/deploy-cloudrun/issues/589
 
 | Output | Description |
 |--------|-------------|
