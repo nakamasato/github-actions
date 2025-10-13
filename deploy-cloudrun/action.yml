@@ -87,6 +87,9 @@ outputs:
   url:
     description: "Service URL"
     value: ${{ steps.deploy.outputs.url }}
+  latest_revision_url:
+    description: "Latest revision URL"
+    value: ${{ steps.get-latest-revision.outputs.url }}
   revision:
     description: "Deployed revision name"
     value: ${{ steps.deploy.outputs.revision }}
@@ -172,7 +175,6 @@ runs:
           ---
           [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-
     - name: Output deployment summary
       shell: bash
       run: |
@@ -194,6 +196,16 @@ runs:
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
+
+    - name: Get latest revision url
+      shell: bash
+      id: get-latest-revision
+      run: |
+        URL=$(gcloud run services describe ${{ inputs.service }} \
+          --project "${{ inputs.project_id }}" \
+          --region "${{ inputs.region }}" \
+          --format json | jq -r '.status.traffic[] | select(.latestRevision).url')
+        echo "url=$URL" >> "$GITHUB_OUTPUT"
 
 branding:
   icon: "cloud"
