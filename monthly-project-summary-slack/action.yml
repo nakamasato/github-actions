@@ -95,7 +95,6 @@ runs:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
         claude_args: |
-          --timeout ${{ inputs.timeout_minutes }}
           --system-prompt "あなたは月次プロジェクトサマリーレポートを生成するAIアシスタントです。GitHub PRデータを分析して、読みやすい月次活動報告書を作成してください。"
           --allowedTools "Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,mcp__slack__slack_post_message"
           --mcp-config '{"mcpServers":{"slack":{"command":"npx","args":["-y","@modelcontextprotocol/server-slack"],"env":{"SLACK_BOT_TOKEN":"${{ inputs.slack_bot_token }}","SLACK_TEAM_ID":"${{ inputs.slack_team_id }}"}}}}'
