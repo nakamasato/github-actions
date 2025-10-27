@@ -89,28 +89,15 @@ runs:
         echo "pr-data-file=pr_data.json" >> "$GITHUB_OUTPUT"
 
     - name: Run Claude Code with MCP
-      uses: anthropics/claude-code-base-action@7e9f6d160175abe3c06bf60516e8c29c6b1700fc
+      uses: anthropics/claude-code-action@f30f5eecfce2f34fa72e40fa5f7bcdbdcad12eb8 # v1.0.14
       with:
-        timeout_minutes: ${{ inputs.timeout_minutes }}
-        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        github_token: ${{ inputs.github_token }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
-        mcp_config: |
-          {
-            "mcpServers": {
-              "slack": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-slack"],
-                "env": {
-                  "SLACK_BOT_TOKEN": "${{ inputs.slack_bot_token }}",
-                  "SLACK_TEAM_ID": "${{ inputs.slack_team_id }}"
-                }
-              }
-            }
-          }
-        system_prompt: |
-          あなたは月次プロジェクトサマリーレポートを生成するAIアシスタントです。
-          GitHub PRデータを分析して、読みやすい月次活動報告書を作成してください。
-        allowed_tools: "Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,mcp__slack__slack_post_message"
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        claude_args: |
+          --system-prompt "あなたは月次プロジェクトサマリーレポートを生成するAIアシスタントです。GitHub PRデータを分析して、読みやすい月次活動報告書を作成してください。"
+          --allowedTools "Bash,Grep,Glob,Read,Write,Edit,MultiEdit,LS,Task,TodoRead,TodoWrite,mcp__slack__slack_post_message"
+          --mcp-config '{"mcpServers":{"slack":{"command":"npx","args":["-y","@modelcontextprotocol/server-slack"],"env":{"SLACK_BOT_TOKEN":"${{ inputs.slack_bot_token }}","SLACK_TEAM_ID":"${{ inputs.slack_team_id }}"}}}}'
         prompt: |
           target_repo: ${{ steps.set-params.outputs.TARGET_REPO }}
 
