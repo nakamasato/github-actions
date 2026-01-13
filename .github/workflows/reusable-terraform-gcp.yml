@@ -102,6 +102,9 @@ jobs:
         with:
           terraform_version: ${{ steps.set-tf-version.outputs.terraform_version }}
 
+      - name: Configure Git for Terraform modules
+        run: git config --global url."https://${{ github.token }}@github.com/".insteadOf "https://github.com/"
+
       - name: Terraform fmt
         id: fmt
         run: terraform fmt -check -recursive
