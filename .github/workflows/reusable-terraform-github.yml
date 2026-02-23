@@ -33,6 +33,11 @@ on:
         type: number
         required: false
         default: 1
+      configure_git_credentials:
+        description: "Configure git credentials for private modules using GITHUB_TOKEN"
+        type: boolean
+        required: false
+        default: false
     outputs:
       tfplan_artifact_name:
         description: "Name of the artifact containing terraform plan JSON"
@@ -123,6 +128,10 @@ jobs:
       - name: Terraform fmt
         id: fmt
         run: terraform fmt -check -recursive
+
+      - name: Configure git credentials for private modules
+        if: inputs.configure_git_credentials
+        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Terraform Init
         id: init

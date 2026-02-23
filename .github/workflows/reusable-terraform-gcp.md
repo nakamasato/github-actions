@@ -31,6 +31,7 @@ jobs:
 | `service_account` | string | **true** | - | GCP service account email for authentication |
 | `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
 | `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
+| `configure_git_credentials` | boolean | false | `false` | Configure git credentials for private modules using GITHUB_TOKEN |
 
 ## Outputs
 
