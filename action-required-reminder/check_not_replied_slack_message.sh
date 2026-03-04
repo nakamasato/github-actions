@@ -140,7 +140,7 @@ main() {
             THREAD_ROOT_TS="$TIMESTAMP"
         fi
 
-        echo "Processing message: $(echo "$MESSAGE_TEXT" | head -c 50)... (ts: $TIMESTAMP, thread_ts: $THREAD_ROOT_TS)" >&2
+        echo "Processing message: $(echo "$MESSAGE_TEXT" | cut -c 1-50)... (ts: $TIMESTAMP, thread_ts: $THREAD_ROOT_TS)" >&2
 
         # Check reactions and thread replies
         HAS_REACTION=false
@@ -171,9 +171,9 @@ main() {
 
             # Get first 50 characters - try text field first, then blocks
             if [ -n "$MESSAGE_TEXT" ] && [ "$MESSAGE_TEXT" != "null" ]; then
-                MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+                MESSAGE_PREVIEW=$(echo "$MESSAGE_TEXT" | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | cut -c 1-50)
             elif [ -n "$MESSAGE_BLOCK_TEXT" ] && [ "$MESSAGE_BLOCK_TEXT" != "null" ]; then
-                MESSAGE_PREVIEW=$(echo "$MESSAGE_BLOCK_TEXT" | head -c 50 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+                MESSAGE_PREVIEW=$(echo "$MESSAGE_BLOCK_TEXT" | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | cut -c 1-50)
             else
                 MESSAGE_PREVIEW=""
             fi
