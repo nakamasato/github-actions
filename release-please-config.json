@@ -1,0 +1,40 @@
+{
+  "packages": {
+    "action-required-reminder": {
+      "release-type": "simple",
+      "component": "action-required-reminder"
+    },
+    "cleanup-cloudrun-traffic-tag": {
+      "release-type": "simple",
+      "component": "cleanup-cloudrun-traffic-tag"
+    },
+    "deploy-cloudrun": {
+      "release-type": "simple",
+      "component": "deploy-cloudrun"
+    },
+    "deploy-python-app-to-cloud-run": {
+      "release-type": "simple",
+      "component": "deploy-python-app-to-cloud-run"
+    },
+    "monthly-project-summary-slack": {
+      "release-type": "simple",
+      "component": "monthly-project-summary-slack"
+    },
+    "pr-description-writer": {
+      "release-type": "node",
+      "component": "pr-description-writer"
+    },
+    "set-image-tag": {
+      "release-type": "simple",
+      "component": "set-image-tag"
+    },
+    "setup-poetry": {
+      "release-type": "simple",
+      "component": "setup-poetry"
+    },
+    ".github/workflows": {
+      "release-type": "simple",
+      "component": "reusable-workflows"
+    }
+  }
+}
