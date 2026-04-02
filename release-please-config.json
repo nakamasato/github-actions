@@ -1,8 +1,14 @@
 {
+  "separate-pull-requests": true,
+  "include-component-in-tag": true,
   "packages": {
     "action-required-reminder": {
       "release-type": "simple",
       "component": "action-required-reminder"
+    },
+    "build-and-push-to-gar": {
+      "release-type": "simple",
+      "component": "build-and-push-to-gar"
     },
     "cleanup-cloudrun-traffic-tag": {
       "release-type": "simple",

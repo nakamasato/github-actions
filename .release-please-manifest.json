@@ -1,5 +1,6 @@
 {
   "action-required-reminder": "1.17.0",
+  "build-and-push-to-gar": "1.17.0",
   "cleanup-cloudrun-traffic-tag": "1.17.0",
   "deploy-cloudrun": "1.17.0",
   "deploy-python-app-to-cloud-run": "1.17.0",
