@@ -1,6 +1,6 @@
 {
     "name": "pr-description-writer",
-    "version": "1.0.0",
+    "version": "1.18.0",
     "description": "GitHub Action to automatically generate PR title and description based on code changes",
     "main": "index.js",
     "scripts": {
