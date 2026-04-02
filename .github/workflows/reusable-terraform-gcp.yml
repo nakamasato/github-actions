@@ -21,8 +21,17 @@ on:
         type: string
         required: true
       service_account:
+        description: "(Deprecated) Use 'service_account_plan' and 'service_account_apply' instead. Will be removed in a future version."
         type: string
-        required: true
+        required: false
+      service_account_plan:
+        description: "GCP service account email for terraform plan"
+        type: string
+        required: false
+      service_account_apply:
+        description: "GCP service account email for terraform apply"
+        type: string
+        required: false
       save_tfplan:
         type: boolean
         required: false
@@ -83,13 +92,42 @@ jobs:
           fi
           aqua i
 
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
+      - name: Resolve service accounts
+        id: resolve-sa
+        shell: bash
+        run: |
+          SA_PLAN="${{ inputs.service_account_plan }}"
+          SA_APPLY="${{ inputs.service_account_apply }}"
+          if [ -z "$SA_PLAN" ] && [ -z "$SA_APPLY" ]; then
+            if [ -n "${{ inputs.service_account }}" ]; then
+              echo "::warning::The 'service_account' input is deprecated and will be removed in a future version. Please migrate to 'service_account_plan' and 'service_account_apply'."
+              SA_PLAN="${{ inputs.service_account }}"
+              SA_APPLY="${{ inputs.service_account }}"
+            else
+              echo "::error::Either 'service_account_plan'/'service_account_apply' or deprecated 'service_account' must be provided."
+              exit 1
+            fi
+          fi
+          echo "sa_plan=${SA_PLAN:-${{ inputs.service_account }}}" >> "$GITHUB_OUTPUT"
+          echo "sa_apply=${SA_APPLY:-${{ inputs.service_account }}}" >> "$GITHUB_OUTPUT"
+
+      - id: 'auth-plan'
+        name: 'Authenticate to Google Cloud (Plan)'
+        if: github.event_name != 'push' || github.ref_name != 'main'
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           create_credentials_file: 'true'
           workload_identity_provider: ${{ inputs.workload_identity_provider }}
-          service_account: ${{ inputs.service_account }}
+          service_account: ${{ steps.resolve-sa.outputs.sa_plan }}
+
+      - id: 'auth-apply'
+        name: 'Authenticate to Google Cloud (Apply)'
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          create_credentials_file: 'true'
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ steps.resolve-sa.outputs.sa_apply }}
 
       - name: set-tf-version
         id: set-tf-version
