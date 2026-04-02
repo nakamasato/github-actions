@@ -14,7 +14,8 @@ jobs:
     uses: nakamasato/github-actions/.github/workflows/reusable-terraform-aws.yml@main
     with:
       working_directory: "aws"
-      iam_role: "arn:aws:iam::123456789012:role/github-actions-terraform"
+      iam_role_plan: "arn:aws:iam::123456789012:role/github-actions-terraform-plan"
+      iam_role_apply: "arn:aws:iam::123456789012:role/github-actions-terraform-apply"
       region: "us-east-1"
       identifier: "my-aws-project"
 ```
@@ -25,7 +26,9 @@ jobs:
 |------|------|----------|---------|-------------|
 | `enable_aqua_cache` | boolean | false | `false` | Enable caching for aqua tool installations |
 | `working_directory` | string | false | `"."` | Directory containing Terraform configuration |
-| `iam_role` | string | **true** | - | AWS IAM role ARN for authentication |
+| `iam_role` | string | false | - | **(Deprecated)** AWS IAM role ARN. Use `iam_role_plan` and `iam_role_apply` instead |
+| `iam_role_plan` | string | false | - | AWS IAM role ARN for terraform plan |
+| `iam_role_apply` | string | false | - | AWS IAM role ARN for terraform apply |
 | `region` | string | **true** | - | AWS region for operations |
 | `identifier` | string | **true** | - | Unique identifier for concurrency control |
 | `terraform_version_file` | string | false | `".terraform-version"` | File containing Terraform version (uses 'latest' if not found) |
@@ -75,7 +78,8 @@ jobs:
     uses: nakamasato/github-actions/.github/workflows/reusable-terraform-aws.yml@main
     with:
       working_directory: "terraform/aws"
-      iam_role: "arn:aws:iam::123456789012:role/github-actions-terraform"
+      iam_role_plan: "arn:aws:iam::123456789012:role/github-actions-terraform-plan"
+      iam_role_apply: "arn:aws:iam::123456789012:role/github-actions-terraform-apply"
       region: "us-east-1"
       identifier: "my-project"
       enable_aqua_cache: true

@@ -16,7 +16,8 @@ jobs:
       working_directory: "github"
       project: "my-github-project"
       workload_identity_provider: "projects/123456789012/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
-      service_account: "terraform@my-gcp-project.iam.gserviceaccount.com"
+      service_account_plan: "terraform-plan@my-gcp-project.iam.gserviceaccount.com"
+      service_account_apply: "terraform-apply@my-gcp-project.iam.gserviceaccount.com"
     secrets:
       gh_app_id: ${{ secrets.GH_APP_ID }}
       gh_private_key: ${{ secrets.GH_PRIVATE_KEY }}
@@ -30,7 +31,9 @@ jobs:
 | `working_directory` | string | false | `"."` | Directory containing Terraform configuration |
 | `project` | string | false | `"github"` | Project name for concurrency control |
 | `workload_identity_provider` | string | false | - | GCP Workload Identity Provider (for GCS backend) |
-| `service_account` | string | false | - | GCP service account email (for GCS backend) |
+| `service_account` | string | false | - | **(Deprecated)** GCP service account email. Use `service_account_plan` and `service_account_apply` instead |
+| `service_account_plan` | string | false | - | GCP service account email for terraform plan (GCS backend) |
+| `service_account_apply` | string | false | - | GCP service account email for terraform apply (GCS backend) |
 | `terraform_version_file` | string | false | `".terraform-version"` | File containing Terraform version (uses 'latest' if not found) |
 | `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
 | `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
@@ -89,7 +92,8 @@ jobs:
       working_directory: "terraform/github"
       project: "my-github-project"
       workload_identity_provider: "projects/123456789012/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
-      service_account: "terraform@my-gcp-project.iam.gserviceaccount.com"
+      service_account_plan: "terraform-plan@my-gcp-project.iam.gserviceaccount.com"
+      service_account_apply: "terraform-apply@my-gcp-project.iam.gserviceaccount.com"
       enable_aqua_cache: true
       save_tfplan: true
       tfplan_retention_days: 3

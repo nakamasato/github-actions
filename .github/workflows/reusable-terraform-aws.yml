@@ -11,8 +11,17 @@ on:
         required: false
         default: "."
       iam_role:
+        description: "(Deprecated) Use 'iam_role_plan' and 'iam_role_apply' instead. Will be removed in a future version."
         type: string
-        required: true
+        required: false
+      iam_role_plan:
+        description: "AWS IAM role ARN for terraform plan"
+        type: string
+        required: false
+      iam_role_apply:
+        description: "AWS IAM role ARN for terraform apply"
+        type: string
+        required: false
       region:
         type: string
         required: true
@@ -84,10 +93,37 @@ jobs:
           fi
           aqua i
 
-      - name: Configure AWS Credentials
+      - name: Resolve IAM roles
+        id: resolve-role
+        shell: bash
+        run: |
+          ROLE_PLAN="${{ inputs.iam_role_plan }}"
+          ROLE_APPLY="${{ inputs.iam_role_apply }}"
+          if [ -z "$ROLE_PLAN" ] && [ -z "$ROLE_APPLY" ]; then
+            if [ -n "${{ inputs.iam_role }}" ]; then
+              echo "::warning::The 'iam_role' input is deprecated and will be removed in a future version. Please migrate to 'iam_role_plan' and 'iam_role_apply'."
+              ROLE_PLAN="${{ inputs.iam_role }}"
+              ROLE_APPLY="${{ inputs.iam_role }}"
+            else
+              echo "::error::Either 'iam_role_plan'/'iam_role_apply' or deprecated 'iam_role' must be provided."
+              exit 1
+            fi
+          fi
+          echo "role_plan=${ROLE_PLAN:-${{ inputs.iam_role }}}" >> "$GITHUB_OUTPUT"
+          echo "role_apply=${ROLE_APPLY:-${{ inputs.iam_role }}}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS Credentials (Plan)
+        if: github.event_name != 'push' || github.ref_name != 'main'
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
-          role-to-assume: ${{ inputs.iam_role }}
+          role-to-assume: ${{ steps.resolve-role.outputs.role_plan }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Configure AWS Credentials (Apply)
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ steps.resolve-role.outputs.role_apply }}
           aws-region: ${{ inputs.region }}
 
       - name: set-tf-version

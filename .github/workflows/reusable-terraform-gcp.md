@@ -16,7 +16,8 @@ jobs:
       working_directory: "gcp"
       project: "my-gcp-project"
       workload_identity_provider: "projects/123456789012/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
-      service_account: "terraform@my-gcp-project.iam.gserviceaccount.com"
+      service_account_plan: "terraform-plan@my-gcp-project.iam.gserviceaccount.com"
+      service_account_apply: "terraform-apply@my-gcp-project.iam.gserviceaccount.com"
 ```
 
 ## Inputs
@@ -28,7 +29,9 @@ jobs:
 | `project` | string | **true** | - | GCP project name for concurrency control |
 | `terraform_version_file` | string | false | `".terraform-version"` | File containing Terraform version (uses 'latest' if not found) |
 | `workload_identity_provider` | string | **true** | - | GCP Workload Identity Provider resource name |
-| `service_account` | string | **true** | - | GCP service account email for authentication |
+| `service_account` | string | false | - | **(Deprecated)** GCP service account email. Use `service_account_plan` and `service_account_apply` instead |
+| `service_account_plan` | string | false | - | GCP service account email for terraform plan |
+| `service_account_apply` | string | false | - | GCP service account email for terraform apply |
 | `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
 | `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
 | `configure_git_credentials` | boolean | false | `false` | Configure git credentials for private modules using GITHUB_TOKEN |
@@ -77,7 +80,8 @@ jobs:
       working_directory: "terraform/gcp"
       project: "my-gcp-project"
       workload_identity_provider: "projects/123456789012/locations/global/workloadIdentityPools/my-pool/providers/my-provider"
-      service_account: "terraform@my-gcp-project.iam.gserviceaccount.com"
+      service_account_plan: "terraform-plan@my-gcp-project.iam.gserviceaccount.com"
+      service_account_apply: "terraform-apply@my-gcp-project.iam.gserviceaccount.com"
       enable_aqua_cache: true
       save_tfplan: true
       tfplan_retention_days: 3
