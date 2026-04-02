@@ -3,7 +3,7 @@
   "build-and-push-to-gar": "1.17.0",
   "cleanup-cloudrun-traffic-tag": "1.17.0",
   "deploy-cloudrun": "1.17.0",
-  "deploy-python-app-to-cloud-run": "1.17.0",
+  "deploy-python-app-to-cloud-run": "1.18.0",
   "monthly-project-summary-slack": "1.17.0",
   "pr-description-writer": "1.17.0",
   "set-image-tag": "1.17.0",
