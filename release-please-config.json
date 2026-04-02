@@ -37,10 +37,6 @@
     "setup-poetry": {
       "release-type": "simple",
       "component": "setup-poetry"
-    },
-    ".github/workflows": {
-      "release-type": "simple",
-      "component": "reusable-workflows"
     }
   }
 }
