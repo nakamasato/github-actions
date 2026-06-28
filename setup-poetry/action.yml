@@ -27,7 +27,7 @@ runs:
   steps:
     - id: setup-python
       name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version-file: ${{ inputs.python-version-file }}
         python-version: ${{ inputs.python-version }}
@@ -46,7 +46,7 @@ runs:
 
     - name: Load cached Poetry installation
       id: cached-poetry
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ~/.local  # the path depends on the OS
         key: poetry-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ steps.get-poetry-version.outputs.POETRY_VERSION }}
@@ -56,7 +56,7 @@ runs:
     #----------------------------------------------
     - name: Install Poetry (${{ steps.get-poetry-version.outputs.POETRY_VERSION }})
       if: steps.cached-poetry.outputs.cache-hit != 'true'
-      uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1.4.1
+      uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
       with:
         version: ${{ steps.get-poetry-version.outputs.POETRY_VERSION }}
         virtualenvs-create: true
@@ -69,7 +69,7 @@ runs:
     #----------------------------------------------
     - name: Load cached venv
       id: cached-poetry-dependencies
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: .venv
         key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ steps.get-poetry-version.outputs.POETRY_VERSION }}-${{ hashFiles('**/poetry.lock') }}
