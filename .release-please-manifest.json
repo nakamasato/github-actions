@@ -5,7 +5,7 @@
   "deploy-cloudrun": "1.17.0",
   "deploy-python-app-to-cloud-run": "1.17.0",
   "monthly-project-summary-slack": "1.17.0",
-  "pr-description-writer": "1.17.0",
+  "pr-description-writer": "1.18.0",
   "set-image-tag": "1.17.0",
   "setup-poetry": "1.17.0"
 }
