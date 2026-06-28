@@ -22,7 +22,7 @@
         "axios": "^1.6.2"
     },
     "devDependencies": {
-        "@vercel/ncc": "^0.38.1",
+        "@vercel/ncc": "^0.44.0",
         "jest": "^30.0.0"
     }
 }
