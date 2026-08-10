@@ -33,6 +33,7 @@ jobs:
 | `service_account_plan` | string | false | - | GCP service account email for terraform plan |
 | `service_account_apply` | string | false | - | GCP service account email for terraform apply |
 | `save_tfplan` | boolean | false | `false` | Save Terraform plan as artifact |
+| `tfplan_filename` | string | false | `"tfplan.json"` | File name for the plan JSON, also its name inside the artifact (see [Plan artifact layout](#plan-artifact-layout)) |
 | `tfplan_retention_days` | number | false | `1` | Number of days to retain Terraform plan artifact |
 | `configure_git_credentials` | boolean | false | `false` | Configure git credentials for private modules using GITHUB_TOKEN |
 
@@ -41,6 +42,31 @@ jobs:
 | Name | Description |
 |------|-------------|
 | `tfplan_artifact_name` | Name of the artifact containing terraform plan JSON |
+
+## Plan artifact layout
+
+By default the artifact holds the plan as `tfplan.json`.
+
+`actions/download-artifact` extracts a **single** artifact directly into `path`
+and only nests each artifact under its own name once two or more match. So in a
+run where only one stack planned, the artifact-name directory — the only signal
+of which stack a plan came from — is gone, and consumers that key per-stack
+behaviour off the path fall back to a generic bucket without saying so.
+
+Give the file a stack-specific name so it identifies itself either way:
+
+```yaml
+with:
+  save_tfplan: true
+  tfplan_filename: my-project.json
+```
+
+| Artifacts in the run | Extracted to |
+|---|---|
+| 1 | `<path>/my-project.json` |
+| 2 or more | `<path>/<artifact-name>/my-project.json` |
+
+Consumers match both with a `**` glob, e.g. `tfplans/**/my-project.json`.
 
 ## Prerequisites
 
