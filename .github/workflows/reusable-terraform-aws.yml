@@ -36,6 +36,17 @@ on:
         type: boolean
         required: false
         default: false
+      tfplan_filename:
+        description: |
+          File name for the plan JSON, which is also the name it carries inside
+          the artifact. Set it to something stack-specific to keep the stack
+          identifiable: actions/download-artifact extracts a lone artifact
+          straight into `path`, dropping the artifact-name directory, so a
+          generic tfplan.json leaves consumers no way to tell which stack the
+          plan came from.
+        type: string
+        required: false
+        default: "tfplan.json"
       tfplan_retention_days:
         type: number
         required: false
@@ -164,7 +175,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.github_token }}
         run: |
           tfcmt -var "target:${{ inputs.identifier }}" plan -patch -- terraform plan -no-color -out=tfplan.binary
-          terraform show -json tfplan.binary > tfplan.json
+          terraform show -json tfplan.binary > "${{ inputs.tfplan_filename }}"
           if [ "${{ inputs.save_tfplan }}" = "true" ]; then
             artifact_name="tfplan-${{ github.workflow }}-${{ inputs.identifier }}-${{ github.run_id }}"
             echo "tfplan_artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
@@ -175,7 +186,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: tfplan-${{ github.workflow }}-${{ inputs.identifier }}-${{ github.run_id }}
-          path: ${{ inputs.working_directory }}/tfplan.json
+          path: ${{ inputs.working_directory }}/${{ inputs.tfplan_filename }}
           retention-days: ${{ inputs.tfplan_retention_days }}
 
       - name: Terraform Apply
