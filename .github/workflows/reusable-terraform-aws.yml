@@ -125,14 +125,14 @@ jobs:
 
       - name: Configure AWS Credentials (Plan)
         if: github.event_name != 'push' || github.ref_name != 'main'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ steps.resolve-role.outputs.role_plan }}
           aws-region: ${{ inputs.region }}
 
       - name: Configure AWS Credentials (Apply)
         if: github.event_name == 'push' && github.ref_name == 'main'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ steps.resolve-role.outputs.role_apply }}
           aws-region: ${{ inputs.region }}
